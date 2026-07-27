@@ -5,8 +5,8 @@ import type * as Preset from '@docusaurus/preset-classic';
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const config: Config = {
-  title: 'My Site',
-  tagline: 'Dinosaurs are cool',
+  title: 'EcoTrack Docs',
+  tagline: 'Technical documentation for the EcoTrack community environmental monitoring platform',
   favicon: 'img/favicon.ico',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
@@ -15,15 +15,15 @@ const config: Config = {
   },
 
   // Set the production url of your site here
-  url: 'https://your-docusaurus-site.example.com',
+  url: 'https://ecotrack-docs.example.com',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: '/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
-  organizationName: 'facebook', // Usually your GitHub org/user name.
-  projectName: 'docusaurus', // Usually your repo name.
+  organizationName: 'ecotrack', // Usually your GitHub org/user name.
+  projectName: 'echotrack-docs', // Usually your repo name.
 
   onBrokenLinks: 'throw',
 
@@ -68,6 +68,12 @@ const config: Config = {
     ],
   ],
 
+  markdown: {
+    mermaid: true,
+  },
+
+  themes: ['@docusaurus/theme-mermaid'],
+
   themeConfig: {
     // Replace with your project's social card
     image: 'img/docusaurus-social-card.jpg',
@@ -75,21 +81,21 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'My Site',
+      title: 'EcoTrack Docs',
       logo: {
-        alt: 'My Site Logo',
+        alt: 'EcoTrack Logo',
         src: 'img/logo.svg',
       },
       items: [
         {
           type: 'docSidebar',
-          sidebarId: 'tutorialSidebar',
+          sidebarId: 'ecotrackSidebar',
           position: 'left',
-          label: 'Tutorial',
+          label: 'Docs',
         },
         {to: '/blog', label: 'Blog', position: 'left'},
         {
-          href: 'https://github.com/facebook/docusaurus',
+          href: 'https://github.com/ecotrack/echotrack-docs',
           label: 'GitHub',
           position: 'right',
         },
@@ -99,46 +105,54 @@ const config: Config = {
       style: 'dark',
       links: [
         {
-          title: 'Docs',
+          title: 'Documentation',
           items: [
             {
-              label: 'Tutorial',
-              to: '/docs/intro',
+              label: 'Introduction',
+              to: '/docs/onboarding',
+            },
+            {
+              label: 'Architecture',
+              to: '/docs/architecture/system-context',
+            },
+            {
+              label: 'API Reference',
+              to: '/docs/api',
+            },
+            {
+              label: 'Runbooks',
+              to: '/docs/runbooks',
             },
           ],
         },
         {
-          title: 'Community',
+          title: 'Platform',
           items: [
             {
-              label: 'Stack Overflow',
-              href: 'https://stackoverflow.com/questions/tagged/docusaurus',
+              label: 'Web Dashboard',
+              to: '/docs/components/web-dashboard',
             },
             {
-              label: 'Discord',
-              href: 'https://discordapp.com/invite/docusaurus',
+              label: 'Mobile App',
+              to: '/docs/components/mobile-app',
             },
             {
-              label: 'X',
-              href: 'https://x.com/docusaurus',
+              label: 'Backend API',
+              to: '/docs/components/backend-api',
             },
           ],
         },
         {
-          title: 'More',
+          title: 'Project',
           items: [
-            {
-              label: 'Blog',
-              to: '/blog',
-            },
             {
               label: 'GitHub',
-              href: 'https://github.com/facebook/docusaurus',
+              href: 'https://github.com/ecotrack/echotrack-docs',
             },
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} EcoTrack — Group 15, PID 08. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,

@@ -11,32 +11,35 @@ type FeatureItem = {
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Easy to Use',
+    title: 'Hyper-Local Incident Reporting',
     Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
+        Citizens submit geo-tagged, photo-verified environmental hazard reports
+        via mobile app. Incidents are pinned to an interactive map and routed to
+        the correct local organization for verification and action.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
+    title: 'Multi-Tenant Data Isolation',
     Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
     description: (
       <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
+        Each environmental organization operates in a secure tenant workspace.
+        PostgreSQL Row-Level Security (RLS) enforces strict data isolation at the
+        database engine level — no cross-tenant data leaks.
       </>
     ),
   },
   {
-    title: 'Powered by React',
+    title: 'Configurable Cleanup Workflows',
     Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
     description: (
       <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
+        Organization admins define custom incident status flows (e.g.,{' '}
+        <em>Reported → Verified → Cleanup Scheduled → Resolved</em>) via a
+        dynamic order-index system — no backend code changes required.
       </>
     ),
   },
