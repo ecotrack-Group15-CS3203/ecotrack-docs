@@ -80,7 +80,7 @@ const config: Config = {
           label: 'Docs',
         },
         {
-          href: 'https://github.com/ecotrack/echotrack-docs',
+          href: 'https://github.com/ecotrack-Group15-CS3203',
           label: 'GitHub',
           position: 'right',
         },
@@ -132,7 +132,7 @@ const config: Config = {
           items: [
             {
               label: 'GitHub',
-              href: 'https://github.com/ecotrack/echotrack-docs',
+              href: 'https://github.com/ecotrack-Group15-CS3203',
             },
           ],
         },
