@@ -9,6 +9,6 @@ This section covers everything you need to get started with EcoTrack — from un
 
 ## In This Section
 
-- **Project Overview** — Problem statement, proposed solution, objectives, and scope
-- **Key Concepts** — Tenants, incidents, roles, workflows, and RLS explained
-- **Local Setup** — Prerequisites, Docker Compose, environment variables, and running the stack
+- [Project Overview](./project-overview) — Problem statement, proposed solution, objectives, and scope
+- [Key Concepts](./key-concepts) — Tenants, incidents, roles, workflows, and RLS explained
+- [Local Setup](./local-setup) — Prerequisites, Docker Compose, environment variables, and running the stack
