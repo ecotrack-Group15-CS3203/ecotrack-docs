@@ -5,191 +5,111 @@ title: Local Development
 
 # Local Development
 
-This runbook covers running the full EcoTrack stack locally using Docker Compose for the database layer, with hot-reload development servers for the API and web dashboard.
+Reference for working on EcoTrack locally. For first-time setup, start with [Local Setup](../01-onboarding/local-setup.md).
 
 ---
 
-## Service Port Map
+## Service and port map
 
-| Service | Container / Process | Local Port |
+| Service | Runs as | Address |
 |---|---|---|
-| PostgreSQL + PostGIS | Docker (`postgres`) | `5432` |
-| NestJS API | Docker (`api`) or `pnpm dev` | `3001` |
-| Next.js Web Dashboard | Docker (`web`) or `pnpm dev` | `3000` |
-| Nginx (production only) | Docker (`nginx`) | `80` / `443` |
+| PostgreSQL 16 + PostGIS | `docker compose` in `ecotrack-api` (`postgres`) | `localhost:5434` |
+| MinIO (S3-compatible) | `docker compose` in `ecotrack-api` (`minio`) | API `localhost:9000`, console `localhost:9001` (`ecotrack` / `ecotrack123`) |
+| Bucket creation | `docker compose` in `ecotrack-api` (`minio-init`, exits after creating `ecotrack-media`) | |
+| Mock JWKS / token minter (optional) | `pnpm mock:jwks` in `ecotrack-api` | `localhost:9999` |
+| NestJS API | `pnpm start:dev` in `ecotrack-api` | `http://localhost:4000/v1`, Swagger at `/api/docs` |
+| Next.js dashboard | `pnpm dev` in `ecotrack-web` | `http://localhost:3000` |
+| Mobile app | `pnpm android` in `ecotrack-mobile` | Emulator or device |
+
+`docker-compose.yml` lives in `ecotrack-api` and holds only the backing services. The API and dashboard run directly on your machine with hot reload.
 
 ---
 
-## Docker Compose Configuration
+## Environment files
 
-The root `docker-compose.yml` defines three services. The `api` and `web` services wait for a healthy `postgres` container before starting.
+| Repository | File | Template |
+|---|---|---|
+| `ecotrack-api` | `.env` | `.env.example` (works locally as-is, apart from the OIDC settings) |
+| `ecotrack-web` | `.env.local` | `.env.local.example` |
+| `ecotrack-mobile` | `.env` | `.env.example` |
 
-```yaml
-services:
-  postgres:
-    image: postgis/postgis:15-3.3
-    environment:
-      POSTGRES_DB: ecotrack_db
-      POSTGRES_USER: ecotrack
-      POSTGRES_PASSWORD: ecotrack
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ecotrack -d ecotrack_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+What each Asgardeo and Mapbox value should be is covered in [External Services](./external-services.md). Production values are listed in [AWS Deployment → Environment files](./aws-deployment.md#step-7-environment-files).
 
-  api:
-    build:
-      context: ./api
-      target: development
-    ports:
-      - "3001:3001"
-    env_file: ./api/.env
-    volumes:
-      - ./api/src:/app/src  # mount source for hot reload
-    depends_on:
-      postgres:
-        condition: service_healthy
+Local defaults worth knowing in `ecotrack-api/.env`:
 
-  web:
-    build:
-      context: ./web
-      target: development
-    ports:
-      - "3000:3000"
-    env_file: ./web/.env
-    depends_on:
-      - api
-
-volumes:
-  postgres_data:
-```
+- `DB_SSL=disable`: the Docker Postgres has no certificate.
+- `S3_ENDPOINT`, `S3_FORCE_PATH_STYLE=true`, `S3_PUBLIC_URL` and the static S3 keys: needed for MinIO. Real S3 on EC2 uses none of them.
+- `OIDC_ISSUER=` (empty): allowed outside production so the mock JWKS works.
 
 ---
 
-## Setup Steps
+## Common commands
 
-### 1. Clone and Configure
+All run from the repository named in the first column.
 
-```bash
-# Clone all three repos into a shared parent directory
-mkdir ecotrack && cd ecotrack
-git clone https://github.com/ecotrack/api.git
-git clone https://github.com/ecotrack/web.git
-git clone https://github.com/ecotrack/mobile.git
-
-# Copy example env files
-cp api/.env.example api/.env
-cp web/.env.example web/.env
-```
-
-Edit `api/.env` and `web/.env` with your local values. At minimum, set the WSO2 Asgardeo credentials and Mapbox token. The database URL and ports are pre-filled to match the Docker Compose defaults.
-
-### 2. Start Services
-
-```bash
-# From the ecotrack/ parent directory (where docker-compose.yml lives)
-docker compose up --build
-```
-
-On first run, Docker pulls `postgis/postgis:15-3.3` (~400 MB) and builds the API and web images. Subsequent starts are faster.
-
-To start only the database (useful when running API/web natively):
-
-```bash
-docker compose up postgres -d
-```
-
-### 3. Run Database Migrations
-
-Once the `postgres` health check passes, apply the Drizzle ORM migrations to create all tables and RLS policies:
-
-```bash
-docker compose exec api pnpm drizzle-kit migrate
-```
-
-Verify the schema was applied:
-
-```bash
-docker compose exec postgres psql -U ecotrack -d ecotrack_db -c "\dt"
-```
-
-### 4. Seed Development Data
-
-Populate the database with a sample tenant, admin, volunteers, and incidents:
-
-```bash
-docker compose exec api pnpm seed
-```
-
-This creates the following dev fixtures:
-
-| Entity | Details |
-|---|---|
-| Organization | `Bolgoda Lake Conservation Society` (slug: `bolgoda-lake`) |
-| Admin user | `admin@bolgoda.local` / password set via Asgardeo dev tenant |
-| Volunteers | 3 test volunteer accounts |
-| Incidents | 5 geo-tagged incidents around Bolgoda Lake (lat ~6.82, lng ~80.03) |
-| Workflow stages | Default 4-stage flow: Reported → Verified → Cleanup Scheduled → Resolved |
+| Repo | Command | Purpose |
+|---|---|---|
+| api | `docker compose up -d` | Start Postgres and MinIO |
+| api | `docker compose down` | Stop them, keeping data |
+| api | `docker compose down -v` | Stop them and **delete** all data |
+| api | `pnpm db:migrate` | Apply migrations. Also sets the `ecotrack_app` password from `DB_PASSWORD`. |
+| api | `pnpm db:generate` | Generate a migration from schema changes (RLS policies are hand-written SQL) |
+| api | `pnpm db:seed` | Demo organisation and incidents |
+| api | `pnpm start:dev` | API with hot reload |
+| api | `docker compose exec postgres psql -U ecotrack -d ecotrack` | psql shell as the owner role |
+| web | `pnpm dev` | Dashboard with hot reload |
+| mobile | `pnpm android` | Native Android build and run |
+| mobile | `pnpm start` | Metro bundler for an already-installed build |
 
 ---
 
-## Running Without Docker (Hot Reload)
+## Tests and checks
 
-For faster iteration cycles, run the API and web processes natively with file-watching, while keeping only the database in Docker:
+| Repo | Command | Needs |
+|---|---|---|
+| api | `pnpm test` | Nothing |
+| api | `pnpm test:integration` | Postgres running and migrated |
+| api | `pnpm exec eslint "{src,test}/**/*.ts"` and `pnpm exec tsc --noEmit` | Nothing |
+| web | `pnpm test`, `pnpm exec eslint .`, `pnpm exec tsc --noEmit`, `CI=true pnpm build` | Nothing |
+| mobile | `pnpm test`, `pnpm exec tsc --noEmit` | Nothing |
 
-```bash
-# Terminal 1 — database only
-docker compose up postgres -d
-
-# Terminal 2 — NestJS API (hot reload via ts-node-dev)
-cd api && pnpm install && pnpm dev
-
-# Terminal 3 — Next.js web dashboard (hot reload via Next.js dev server)
-cd web && pnpm install && pnpm dev
-```
-
-The API connects to `localhost:5432` using the `DATABASE_URL` in `api/.env`.
+CI runs the same checks. See [CI/CD Pipeline](./ci-cd.md).
 
 ---
 
-## Useful Commands
+## Production images locally
 
-| Command | Description |
-|---|---|
-| `docker compose up --build -d` | Start all services in detached mode |
-| `docker compose down` | Stop all services, preserve data volumes |
-| `docker compose down -v` | Stop all services and **destroy** all data volumes |
-| `docker compose logs -f api` | Tail API container logs |
-| `docker compose exec api pnpm drizzle-kit generate` | Generate a new migration from schema changes |
-| `docker compose exec api pnpm drizzle-kit migrate` | Apply pending migrations |
-| `docker compose exec api pnpm test` | Run Jest unit tests inside the container |
-| `docker compose exec postgres psql -U ecotrack -d ecotrack_db` | Open a psql shell |
+Both `ecotrack-api` and `ecotrack-web` contain the production `Dockerfile` used in [AWS Deployment](./aws-deployment.md). To try the API image against the local services:
+
+```bash
+cd ecotrack-api
+docker build -t ecotrack-api:local .
+docker run --rm -p 127.0.0.1:4100:4000 --env-file .env \
+  --add-host=host.docker.internal:host-gateway \
+  -e DB_HOST=host.docker.internal -e S3_ENDPOINT=http://host.docker.internal:9000 \
+  ecotrack-api:local
+curl http://127.0.0.1:4100/v1/health
+```
 
 ---
 
 ## Verifying PostGIS
 
-Confirm the PostGIS extension is active after running migrations:
-
-```sql
-SELECT PostGIS_Full_Version();
--- Expected: POSTGIS="3.3.x" [EXTENSION] PGSQL="150" ...
+```bash
+docker compose exec postgres psql -U ecotrack -d ecotrack -c "SELECT PostGIS_Full_Version();"
 ```
 
 ---
 
-## Common Issues
+## Troubleshooting
 
-| Symptom | Likely Cause | Fix |
+| Symptom | Likely cause | Fix |
 |---|---|---|
-| `FATAL: role "ecotrack" does not exist` | Volume initialized before user was created | `docker compose down -v && docker compose up --build` |
-| API starts before DB is ready | Missing `depends_on` health check | Confirm the `depends_on.postgres.condition: service_healthy` block is present in `docker-compose.yml` |
-| `PostGIS extension not found` | Using plain `postgres` image instead of `postgis/postgis` | Confirm the `image:` field in the compose file is `postgis/postgis:15-3.3` |
-| Port `5432` already in use | Local PostgreSQL instance running on the host | Stop the host instance: `sudo systemctl stop postgresql` |
-| Next.js shows `ECONNREFUSED` on API calls | `NEXT_PUBLIC_API_URL` points to wrong port | Check `web/.env` — it must match the API container's published port (`3001`) |
-| Drizzle migration fails | `DATABASE_URL` not set or wrong | Verify `api/.env` and that the `postgres` container is healthy: `docker compose ps` |
+| `ECONNREFUSED 127.0.0.1:5434` | Backing services not running | `docker compose up -d` in `ecotrack-api` |
+| `password authentication failed for user "ecotrack_app"` | Migrations not run, or `DB_PASSWORD` changed since | `pnpm db:migrate` |
+| API won't start: `"S3_ACCESS_KEY_ID" is not allowed to be empty` or `... without its required peers` | An empty or half-set S3 key | Set both keys (MinIO) or remove both lines |
+| Every API call returns `401` | Token from a different issuer than `OIDC_JWKS_URI`/`OIDC_ISSUER` (mock vs real tenant) | Point the API at the issuer the client signs in with |
+| Photos don't load or uploads fail on a physical phone | Presigned URLs point at `localhost:9000` | `S3_ENDPOINT=http://<LAN IP>:9000` in `ecotrack-api/.env`, then restart the API |
+| Photos don't load when opening a stored URL directly | Expected: the bucket is private, and only the presigned URLs the API returns work | Use the URL from the API response |
+| Web build fails with `Module not found` for `react-i18next` | Corrupted `node_modules` after an in-place `pnpm add` | `rm -rf node_modules && pnpm install` |
+| Port `5434` or `9000` already in use | Another Postgres or MinIO on the host | Stop it, or change the host port in `docker-compose.yml` and `.env` |

@@ -5,147 +5,85 @@ title: AWS Deployment
 
 # AWS Deployment
 
-This runbook covers deploying the EcoTrack platform to AWS using the Free Tier architecture: Docker Compose on EC2 for compute, Amazon RDS for the managed PostgreSQL database, and Amazon S3 for media storage.
+Deploys the API and web dashboard to a single EC2 instance behind Nginx, with Amazon RDS for PostgreSQL and a private S3 bucket. Set up Asgardeo and Mapbox first, following [External Services](./external-services.md).
 
 ---
 
-## Architecture Overview
+## Architecture
 
 ```
-Internet
-  └── EC2 t2.micro (Nginx → Docker Compose)
-        ├── NestJS API container (:3001)
-        └── Next.js Web container (:3000)
+Internet ──HTTPS──▶ EC2 (Ubuntu, Docker)
+                     Nginx :443
+                       ├── ecotrack.example.com      ─▶ ecotrack-web  container :3000
+                       └── api.ecotrack.example.com  ─▶ ecotrack-api  container :4000
+                                                          │
+                     ecotrack-web ──http──▶ ecotrack-api  │ (Docker network, server-side only)
+                                                          ├──TLS──▶ RDS PostgreSQL 16 (private)
+                                                          └──IAM role──▶ S3 (private bucket)
 
-Amazon RDS (PostgreSQL 15 + PostGIS 3) ─── EC2 private subnet
-Amazon S3 (ecotrack-incident-media)     ─── API → presigned URLs → client uploads
+Mobile app ──HTTPS──▶ api.ecotrack.example.com
+Mobile app ──presigned PUT/GET──▶ S3
 ```
 
-The database is **decoupled from EC2** to prevent OOM crashes and data loss on container restarts (see [ADR-005](../architecture/adrs/ADR-005-modular-monolith)).
+- **Photos**: the mobile app uploads straight to S3 with a presigned PUT. The API never handles image bytes. The bucket stays private: every API response that includes a photo carries a presigned GET URL valid for 15 minutes.
+- **Database**: the API connects as `ecotrack_app`, a `NOBYPASSRLS` role that migrations create. Migrations run as the RDS master user, who owns the schema and can create the `postgis`, `uuid-ossp` and `pg_trgm` extensions.
+- **Credentials**: S3 access comes from the EC2 instance profile role. No AWS keys live on the instance.
+
+Examples use region `ap-southeast-1`, domain `ecotrack.example.com` and bucket `ecotrack-media-prod`. Substitute your own.
 
 ---
 
-## Prerequisites
+## Step 1: Security groups
 
-- AWS account with Free Tier eligibility
-- AWS CLI v2 installed and configured (`aws configure`)
-- An EC2 key pair created in the target region
-- A registered domain name (pointed to the EC2 Elastic IP)
+Create two security groups in the VPC you'll use (the default VPC is fine):
 
----
+| Group | Inbound rule | Source |
+|---|---|---|
+| `ecotrack-ec2` | TCP 22 (SSH) | Your IP only |
+| `ecotrack-ec2` | TCP 80, 443 | `0.0.0.0/0` |
+| `ecotrack-rds` | TCP 5432 | Security group `ecotrack-ec2` |
 
-## Step 1: Create the RDS Database
-
-### Launch a PostgreSQL 15 RDS Instance
-
-```bash
-aws rds create-db-instance \
-  --db-instance-identifier ecotrack-db \
-  --db-instance-class db.t3.micro \
-  --engine postgres \
-  --engine-version "15.6" \
-  --master-username ecotrack \
-  --master-user-password YOUR_SECURE_PASSWORD \
-  --allocated-storage 20 \
-  --no-multi-az \
-  --publicly-accessible false \
-  --db-name ecotrack_db \
-  --region ap-southeast-1
-```
-
-:::warning Free Tier Note
-`db.t3.micro` with 20 GB storage is within the AWS Free Tier for 12 months. Do not enable Multi-AZ or increase storage beyond 20 GB without understanding the cost implications.
-:::
-
-### Enable PostGIS on RDS
-
-Once the instance status is `available`, connect via psql and enable the extension:
-
-```bash
-psql -h <rds-endpoint> -U ecotrack -d ecotrack_db
-```
-
-```sql
-CREATE EXTENSION IF NOT EXISTS postgis;
-CREATE EXTENSION IF NOT EXISTS postgis_topology;
-
--- Verify
-SELECT PostGIS_Full_Version();
-```
-
-### Configure the RDS Security Group
-
-The RDS instance's security group must allow inbound TCP on port `5432` **only from the EC2 instance's security group**, not from the public internet.
-
-```bash
-# Allow EC2 security group to reach RDS
-aws ec2 authorize-security-group-ingress \
-  --group-id sg-XXXXXXXX \   # RDS security group ID
-  --protocol tcp \
-  --port 5432 \
-  --source-group sg-YYYYYYYY  # EC2 security group ID
-```
+Ports 3000 and 4000 are never opened. The containers bind to `127.0.0.1` and only Nginx reaches them.
 
 ---
 
-## Step 2: Create the S3 Bucket
+## Step 2: RDS PostgreSQL
 
-### Create the Bucket
+Create the database in the console (**RDS → Create database**) with:
 
-```bash
-aws s3api create-bucket \
-  --bucket ecotrack-incident-media \
-  --region ap-southeast-1 \
-  --create-bucket-configuration LocationConstraint=ap-southeast-1
-```
+| Setting | Value |
+|---|---|
+| Engine | PostgreSQL **16.x** (the version the project's Docker image and CI use) |
+| Template / class | Free tier or `db.t4g.micro` |
+| DB instance identifier | `ecotrack-db` |
+| Master username | `ecotrack`. This becomes `DB_MIGRATOR_USER`. |
+| Master password | A strong secret. This becomes `DB_MIGRATOR_PASSWORD`. |
+| Storage | 20 GB gp3, encryption on |
+| Public access | **No** |
+| VPC security group | `ecotrack-rds` |
+| Initial database name | `ecotrack` (under *Additional configuration*) |
+| Backup retention | 7 days |
 
-### Block Public Access (Required)
+Leave the default parameter group. On PostgreSQL 15 and later it sets `rds.force_ssl = 1`, so unencrypted connections are refused, which is what the API's `DB_SSL` setting handles.
 
-All objects are accessed via presigned URLs — the bucket must **not** be publicly accessible.
+Once the instance is **Available**, copy its **endpoint** (for example `ecotrack-db.xxxxxxxx.ap-southeast-1.rds.amazonaws.com`).
 
-```bash
-aws s3api put-public-access-block \
-  --bucket ecotrack-incident-media \
-  --public-access-block-configuration \
-    "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
-```
-
-### Configure CORS for Presigned Uploads
-
-The mobile and web clients upload files directly to S3 using presigned PUT URLs. S3 needs CORS configured to allow this from the app's domain.
-
-Save the following as `cors.json`:
-
-```json
-{
-  "CORSRules": [
-    {
-      "AllowedHeaders": ["*"],
-      "AllowedMethods": ["PUT", "GET"],
-      "AllowedOrigins": [
-        "https://ecotrack.example.com",
-        "http://localhost:3000"
-      ],
-      "ExposeHeaders": ["ETag"],
-      "MaxAgeSeconds": 3000
-    }
-  ]
-}
-```
-
-```bash
-aws s3api put-bucket-cors \
-  --bucket ecotrack-incident-media \
-  --cors-configuration file://cors.json
-```
+You don't need to enable PostGIS by hand. The first migration creates the extensions.
 
 ---
 
-## Step 3: Configure IAM
+## Step 3: S3 bucket
 
-### Create an IAM Policy for S3 Access
+1. **S3 → Create bucket**: name `ecotrack-media-prod`, region `ap-southeast-1`.
+2. Keep **Block all public access** turned **on**, and default encryption at SSE-S3.
+3. No bucket policy and no CORS rule are needed. The mobile app's uploads aren't browser requests, so CORS doesn't apply, and browsers display the presigned URLs through `<img>` tags, which don't use CORS. If a browser client ever uploads directly, add a CORS rule allowing `PUT` from the dashboard origin.
 
-The EC2 instance needs an IAM role that allows the NestJS API to call S3. Apply least-privilege: only the specific bucket, only the required actions.
+---
+
+## Step 4: IAM role for the instance
+
+1. **IAM → Roles → Create role**, trusted entity **AWS service → EC2**. Name it `ecotrack-ec2`.
+2. Add this inline policy (least privilege: one bucket, read and write objects only):
 
 ```json
 {
@@ -153,176 +91,267 @@ The EC2 instance needs an IAM role that allows the NestJS API to call S3. Apply 
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": [
-        "s3:PutObject",
-        "s3:GetObject",
-        "s3:DeleteObject"
-      ],
-      "Resource": "arn:aws:s3:::ecotrack-incident-media/*"
+      "Action": ["s3:PutObject", "s3:GetObject"],
+      "Resource": "arn:aws:s3:::ecotrack-media-prod/*"
     }
   ]
 }
 ```
 
-Attach this policy to an IAM Role, then attach the role to the EC2 instance. This is preferred over embedding `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` in environment files.
+Presigned URLs are signed with whatever credentials the API holds, so the role needs `PutObject` for uploads and `GetObject` for viewing, even though clients make those requests themselves.
 
 ---
 
-## Step 4: Launch the EC2 Instance
+## Step 5: EC2 instance
+
+1. Launch **Ubuntu Server 24.04 LTS**, `t3.small` (2 GB; two Node processes on a 1 GB instance risk running out of memory), 20 GB disk.
+2. Security group `ecotrack-ec2`. Under *Advanced details*, set the **IAM instance profile** to `ecotrack-ec2`, **Metadata version** to *V2 only*, and **Metadata response hop limit** to **2**.
+   The hop limit matters. With the default of 1, processes inside Docker containers can't reach the instance metadata service, and the API fails to load S3 credentials. To fix an existing instance:
+   ```bash
+   aws ec2 modify-instance-metadata-options --instance-id i-xxxxxxxx \
+     --http-tokens required --http-put-response-hop-limit 2
+   ```
+3. Allocate an **Elastic IP** and associate it. Create DNS `A` records for `ecotrack.example.com` and `api.ecotrack.example.com` pointing at it.
+4. Install the tooling:
 
 ```bash
-aws ec2 run-instances \
-  --image-id ami-0c55b159cbfafe1f0 \  # Ubuntu 22.04 LTS (ap-southeast-1)
-  --instance-type t2.micro \
-  --key-name your-key-pair-name \
-  --security-group-ids sg-YYYYYYYY \
-  --iam-instance-profile Name=ecotrack-ec2-profile \
-  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=ecotrack-api}]'
+ssh ubuntu@<elastic-ip>
+sudo apt update
+sudo apt install -y docker.io nginx certbot python3-certbot-nginx postgresql-client
+sudo usermod -aG docker ubuntu && newgrp docker
 ```
 
-### Configure the EC2 Security Group
-
-| Port | Protocol | Source | Purpose |
-|---|---|---|---|
-| `22` | TCP | Your IP only | SSH access |
-| `80` | TCP | `0.0.0.0/0` | HTTP (redirects to HTTPS) |
-| `443` | TCP | `0.0.0.0/0` | HTTPS (Nginx) |
-
-**Do not expose ports `3000` or `3001` directly** — all traffic must go through Nginx.
-
-### Install Docker on the EC2 Instance
+5. Download the RDS certificate bundle and check the database is reachable over verified TLS:
 
 ```bash
-ssh -i your-key.pem ubuntu@<ec2-public-ip>
+sudo mkdir -p /etc/ecotrack
+sudo curl -fsSL -o /etc/ecotrack/rds-global-bundle.pem \
+  https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+sudo chmod 644 /etc/ecotrack/rds-global-bundle.pem
 
-# Install Docker
-sudo apt update && sudo apt install -y docker.io docker-compose-plugin
-sudo systemctl enable docker && sudo systemctl start docker
-sudo usermod -aG docker ubuntu
-newgrp docker
-
-# Verify
-docker --version
-docker compose version
+psql "host=<rds-endpoint> port=5432 dbname=ecotrack user=ecotrack sslmode=verify-full sslrootcert=/etc/ecotrack/rds-global-bundle.pem" \
+  -c "select version();"
 ```
 
 ---
 
-## Step 5: Configure Nginx as a Reverse Proxy
+## Step 6: Build and ship the images
 
-Install Nginx and configure it to proxy `api.ecotrack.example.com` → port `3001` and `ecotrack.example.com` → port `3000`.
-
-```nginx
-# /etc/nginx/sites-available/ecotrack
-server {
-    server_name ecotrack.example.com;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-
-server {
-    server_name api.ecotrack.example.com;
-
-    location / {
-        proxy_pass http://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header Host $host;
-    }
-}
-```
-
-Enable the config and obtain a TLS certificate via Let's Encrypt:
+Build on your machine or in CI, not on the instance (the Next.js build needs more memory than a small instance has spare). Both repositories include a production `Dockerfile`.
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/ecotrack /etc/nginx/sites-enabled/
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d ecotrack.example.com -d api.ecotrack.example.com
-sudo systemctl reload nginx
+# In ecotrack-api
+docker build --platform linux/amd64 -t ecotrack-api:1.0.0 .
+
+# In ecotrack-web. NEXT_PUBLIC_* values are baked in at build time.
+docker build --platform linux/amd64 -t ecotrack-web:1.0.0 \
+  --build-arg NEXT_PUBLIC_MAPBOX_TOKEN=pk.xxxxxxxx \
+  --build-arg NEXT_PUBLIC_MOBILE_APP_URL= .
+
+# Copy both to the instance
+docker save ecotrack-api:1.0.0 ecotrack-web:1.0.0 | gzip | ssh ubuntu@<elastic-ip> 'gunzip | docker load'
 ```
+
+(If you'd rather use a registry, push to Amazon ECR and add `ecr:GetAuthorizationToken` plus pull permissions to the instance role.)
 
 ---
 
-## Step 6: Set Production Environment Variables
+## Step 7: Environment files
 
-Store secrets in GitHub Actions (for CI/CD injection) and on the EC2 instance. **Do not commit `.env` files containing secrets to the repository.**
+Create these on the instance with `sudo`, and `chmod 600` each one. Docker's `--env-file` reads values literally, so **don't wrap values in quotes**.
 
-On the EC2 instance, create `/home/ubuntu/ecotrack/api/.env` with the production values. At minimum:
+`/etc/ecotrack/api.env` holds the runtime settings the API container always gets:
 
 ```dotenv
 NODE_ENV=production
-DATABASE_URL=postgresql://ecotrack:<password>@<rds-endpoint>:5432/ecotrack_db
-ASGARDEO_ORG_NAME=your-org
-ASGARDEO_CLIENT_ID=your-client-id
-ASGARDEO_CLIENT_SECRET=your-client-secret
-AWS_REGION=ap-southeast-1
-AWS_S3_BUCKET=ecotrack-incident-media
-# Push notifications go through the Expo Push Service, not Firebase — no
-# service-account credential is required. EXPO_ACCESS_TOKEN is optional,
-# only needed to raise Expo's push-request rate limit.
-EXPO_ACCESS_TOKEN=
+PORT=4000
+TRUST_PROXY=1
+CORS_ORIGINS=https://ecotrack.example.com
+
+DB_HOST=<rds-endpoint>
+DB_PORT=5432
+DB_NAME=ecotrack
+DB_USER=ecotrack_app
+# Generate one, e.g. openssl rand -base64 32 | tr -d '/+='
+DB_PASSWORD=<strong app-role password>
+DB_SSL=verify-full
+DB_SSL_CA=/certs/rds-global-bundle.pem
+
+OIDC_JWKS_URI=https://api.asgardeo.io/t/<org>/oauth2/jwks
+OIDC_ISSUER=https://api.asgardeo.io/t/<org>/oauth2/token
+OIDC_AUDIENCE=<web client ID>,<mobile client ID>
+
+S3_BUCKET=ecotrack-media-prod
+S3_REGION=ap-southeast-1
 ```
 
-When using the IAM Role on EC2 (Step 3), `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are **not needed** — the AWS SDK automatically uses instance metadata credentials.
+Leave `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_ENDPOINT`, `S3_FORCE_PATH_STYLE` and `S3_PUBLIC_URL` **out entirely**. Without keys the API uses the instance role, and an empty `S3_ACCESS_KEY_ID=` line fails validation.
 
----
+`/etc/ecotrack/migrator.env` holds the master credentials. It's only passed to the one-off migration container, so the long-running API never holds them:
 
-## Step 7: Initial Deployment
+```dotenv
+DB_MIGRATOR_USER=ecotrack
+DB_MIGRATOR_PASSWORD=<RDS master password>
+```
 
-```bash
-# On EC2: clone repos and start services
-cd /home/ubuntu
-git clone https://github.com/ecotrack/api.git
-git clone https://github.com/ecotrack/web.git
+`/etc/ecotrack/web.env`:
 
-docker compose -f docker-compose.prod.yml up --build -d
-
-# Run migrations against RDS
-docker compose -f docker-compose.prod.yml exec api pnpm drizzle-kit migrate
+```dotenv
+API_URL=http://ecotrack-api:4000/v1
+ASGARDEO_BASE_URL=https://api.asgardeo.io/t/<org>
+ASGARDEO_CLIENT_ID=<web client ID>
+ASGARDEO_CLIENT_SECRET=<web client secret>
+ASGARDEO_REDIRECT_URI=https://ecotrack.example.com/api/auth/callback
+ASGARDEO_POST_LOGOUT_REDIRECT_URI=https://ecotrack.example.com
 ```
 
 ---
 
-## Health Check Verification
+## Step 8: Migrate and start
 
-| Check | Command | Expected |
-|---|---|---|
-| API health | `curl https://api.ecotrack.example.com/health` | `{"status":"ok"}` |
-| Web dashboard | Open `https://ecotrack.example.com` in browser | Login page loads |
-| RDS connectivity | `docker compose exec api pnpm db:ping` | `Database connection OK` |
-| PostGIS | See [local setup PostGIS verification](./local-development#verifying-postgis) | Version string |
+```bash
+docker network create ecotrack
+
+# 1. Migrations (as the RDS master user). This also sets the ecotrack_app
+#    password to DB_PASSWORD, and it refuses to run while DB_PASSWORD is
+#    still the development placeholder.
+docker run --rm --network ecotrack \
+  --env-file /etc/ecotrack/api.env --env-file /etc/ecotrack/migrator.env \
+  -v /etc/ecotrack/rds-global-bundle.pem:/certs/rds-global-bundle.pem:ro \
+  ecotrack-api:1.0.0 node dist/database/migrate.js
+# Expect: "Migrations applied successfully." then
+#         "Password for role "ecotrack_app" set from DB_PASSWORD."
+
+# 2. API
+docker run -d --name ecotrack-api --restart unless-stopped --network ecotrack \
+  -p 127.0.0.1:4000:4000 --env-file /etc/ecotrack/api.env \
+  -v /etc/ecotrack/rds-global-bundle.pem:/certs/rds-global-bundle.pem:ro \
+  ecotrack-api:1.0.0
+
+# 3. Web dashboard
+docker run -d --name ecotrack-web --restart unless-stopped --network ecotrack \
+  -p 127.0.0.1:3000:3000 --env-file /etc/ecotrack/web.env \
+  ecotrack-web:1.0.0
+
+curl -s http://127.0.0.1:4000/v1/health
+# {"status":"ok",...,"checks":{"database":"up"}}
+```
 
 ---
 
-## Cost Monitoring
+## Step 9: Nginx and TLS
 
-After the 12-month Free Tier period expires, the estimated monthly baseline cost is approximately **$30–$50 USD**:
+`/etc/nginx/sites-available/ecotrack`:
 
-| Service | Resource | Estimated Cost |
-|---|---|---|
-| EC2 | t2.micro, on-demand | ~$9/month |
-| RDS | db.t3.micro, 20 GB gp2 | ~$15/month |
-| S3 | Storage + requests (small volume) | ~$1–$5/month |
-| Data Transfer | Outbound internet | ~$5/month |
+```nginx
+server {
+    listen 80;
+    server_name ecotrack.example.com;
 
-Set up an **AWS Billing Alarm** to alert when monthly charges exceed $15:
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 80;
+    server_name api.ecotrack.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:4000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
 
 ```bash
-aws cloudwatch put-metric-alarm \
+sudo ln -s /etc/nginx/sites-available/ecotrack /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d ecotrack.example.com -d api.ecotrack.example.com
+```
+
+Certbot adds the `listen 443` blocks and the HTTP→HTTPS redirect, and installs a renewal timer.
+
+Nginx is the one proxy hop in front of the API, which is why `api.env` sets `TRUST_PROXY=1`. If you add a load balancer in front of Nginx later, raise it to `2`.
+
+---
+
+## Step 10: Verify
+
+| Check | How | Expected |
+|---|---|---|
+| API health | `curl https://api.ecotrack.example.com/v1/health` | `200`, `"database":"up"` |
+| TLS to RDS is enforced | The API starts at all (with `DB_SSL` unset it would fail with `no pg_hba.conf entry ... no encryption`) | Healthy |
+| Dashboard sign-in | Open `https://ecotrack.example.com`, sign in | Asgardeo login, then the dashboard |
+| Mobile sign-in | App built with `EXPO_PUBLIC_API_BASE_URL=https://api.ecotrack.example.com` | Signed in, profile loads |
+| Upload + private bucket | Report an incident with a photo from the app, then open it | Photo shows; the object exists in S3 |
+| Bucket isn't public | `curl -I https://ecotrack-media-prod.s3.ap-southeast-1.amazonaws.com/<object-key>` | `403` |
+| Rate limiting sees real IPs | `for i in $(seq 11); do curl -s -o /dev/null -w "%{http_code} " https://api.ecotrack.example.com/v1/invites/not-a-token; done` | The 11th request is `429`, and a request from another network right after is not |
+| CORS allowlist | `curl -sI -H 'Origin: https://evil.example' https://api.ecotrack.example.com/v1/health` | No `Access-Control-Allow-Origin` header |
+
+---
+
+## Updating
+
+```bash
+# Build and load new tags as in Step 6, then on the instance:
+docker run --rm --network ecotrack \
+  --env-file /etc/ecotrack/api.env --env-file /etc/ecotrack/migrator.env \
+  -v /etc/ecotrack/rds-global-bundle.pem:/certs/rds-global-bundle.pem:ro \
+  ecotrack-api:1.0.1 node dist/database/migrate.js
+
+docker rm -f ecotrack-api && docker run -d --name ecotrack-api ...   # same flags as Step 8, new tag
+docker rm -f ecotrack-web && docker run -d --name ecotrack-web ...
+```
+
+**Rotating the app database password**: change `DB_PASSWORD` in `api.env`, re-run the migration container (it re-applies the password), then restart `ecotrack-api`.
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `no pg_hba.conf entry for host ... no encryption` | TLS not enabled | `DB_SSL=verify-full` (or `require`) |
+| `self-signed certificate in certificate chain` / `unable to get local issuer certificate` | CA bundle not mounted or wrong path | Check the `-v` mount and `DB_SSL_CA` |
+| `password authentication failed for user "ecotrack_app"` | Migrations not re-run since `DB_PASSWORD` was set or changed | Run the migration container again |
+| `permission denied to create extension` during migration | Migrating as a user other than the RDS master | Check `migrator.env` |
+| `Could not load credentials from any providers` on photo requests | No instance role, or metadata hop limit still 1 | Step 4 and Step 5 (hop limit 2) |
+| Photo upload from the app fails with `403 SignatureDoesNotMatch` | Upload `Content-Type` differs from the one requested, or the device clock is badly off | Check the app's upload request |
+| Photos stop loading after the screen is left open a long time | Presigned URLs expire after 15 minutes | Reload. Screens fetch fresh URLs. |
+| Every user gets `429` together | `TRUST_PROXY` missing, so every request looks like it comes from Nginx | Set `TRUST_PROXY=1` |
+| API exits at startup: `"OIDC_ISSUER" is not allowed to be empty` | Production requires the issuer | Set `OIDC_ISSUER` |
+| Asgardeo sign-in problems | See [External Services → Asgardeo troubleshooting](./external-services.md#asgardeo-troubleshooting) | |
+
+---
+
+## Cost monitoring
+
+Rough on-demand monthly figures after the Free Tier. Check the AWS Pricing Calculator for your region.
+
+| Service | Resource | Approx. |
+|---|---|---|
+| EC2 | `t3.small` | ~$15–20 |
+| RDS | `db.t4g.micro`, 20 GB gp3 | ~$15–20 |
+| S3 | Storage + requests at low volume | ~$1–5 |
+| Data transfer | Outbound | ~$5 |
+
+Set a billing alarm (billing metrics live in `us-east-1`):
+
+```bash
+aws cloudwatch put-metric-alarm --region us-east-1 \
   --alarm-name "EcoTrack-Monthly-Cost-Alert" \
-  --metric-name EstimatedCharges \
-  --namespace AWS/Billing \
-  --statistic Maximum \
-  --period 86400 \
-  --threshold 15 \
-  --comparison-operator GreaterThanThreshold \
+  --metric-name EstimatedCharges --namespace AWS/Billing \
+  --dimensions Name=Currency,Value=USD \
+  --statistic Maximum --period 21600 --evaluation-periods 1 \
+  --threshold 15 --comparison-operator GreaterThanThreshold \
   --alarm-actions arn:aws:sns:us-east-1:<account-id>:<topic-name>
 ```

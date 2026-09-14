@@ -5,146 +5,82 @@ title: Local Setup
 
 # Local Setup
 
-This guide walks you through running the full EcoTrack stack locally using Docker Compose.
+Get the API, web dashboard and mobile app running on your machine. For the full reference (ports, commands, tests, troubleshooting) see [Local Development](../04-runbooks/local-development.md).
 
 ## Prerequisites
 
-Ensure the following tools are installed before proceeding:
-
-| Tool | Version | Purpose |
+| Tool | Version | Needed for |
 |---|---|---|
-| [Node.js](https://nodejs.org/) | 20 LTS or later | Running Next.js web dashboard and NestJS API outside Docker |
-| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | Latest stable | Running all services via Docker Compose |
-| [pnpm](https://pnpm.io/) | 9+ | Package manager (used across the monorepo) |
-| [Git](https://git-scm.com/) | Any recent | Cloning repositories |
+| [Node.js](https://nodejs.org/) | 22 | All three apps |
+| [pnpm](https://pnpm.io/) | 11 | All three apps |
+| [Docker](https://docs.docker.com/get-docker/) | Recent, with Compose | Local Postgres + PostGIS and MinIO (S3) |
+| [Android Studio](https://developer.android.com/studio) | Recent | Building and running the mobile app |
+| A WSO2 Asgardeo organization | | Signing in to the dashboard and the app. See [External Services](../04-runbooks/external-services.md#wso2-asgardeo). |
+| A Mapbox account | | Maps. See [External Services](../04-runbooks/external-services.md#mapbox). |
 
-## 1. Clone the Repositories
+## 1. Clone the repositories
 
-EcoTrack consists of three separate codebases. Clone them into a shared parent directory:
+EcoTrack is split across separate repositories. Clone them side by side:
+
+```
+ecotrack/
+├── ecotrack-api      NestJS API
+├── ecotrack-web      Next.js dashboard
+├── ecotrack-mobile   Expo / React Native app
+└── echotrack-docs    This documentation
+```
+
+## 2. API
 
 ```bash
-mkdir ecotrack && cd ecotrack
-
-git clone https://github.com/ecotrack/api.git          # NestJS backend
-git clone https://github.com/ecotrack/web.git          # Next.js web dashboard
-git clone https://github.com/ecotrack/mobile.git       # React Native mobile app
+cd ecotrack-api
+cp .env.example .env
+pnpm install
+docker compose up -d          # Postgres (host port 5434) + MinIO (9000, console 9001)
+pnpm db:migrate               # schema, RLS policies, the ecotrack_app role
+pnpm start:dev                # http://localhost:4000/v1
 ```
 
-## 2. Configure Environment Variables
+`.env.example` works as-is for Postgres and MinIO. Choose how tokens are validated:
 
-Each service requires a `.env` file. Copy the provided example files and fill in the values:
+- **Real Asgardeo** (needed to use the dashboard or the app): set `OIDC_JWKS_URI` and `OIDC_ISSUER` to your tenant, as described in [External Services → API settings](../04-runbooks/external-services.md#4-api-settings).
+- **Mock tokens** (API only, for curl or Swagger): keep the defaults and run `pnpm mock:jwks`. Mint a token with
+  `curl "http://localhost:9999/token?sub=demo-user&email=demo@example.dev&name=Demo+User"`.
+
+Optional demo data: `pnpm db:seed`.
+
+Check it: `curl http://localhost:4000/v1/health` should return `"database":"up"`. Swagger UI is at `http://localhost:4000/api/docs`.
+
+## 3. Web dashboard
 
 ```bash
-cp api/.env.example api/.env
-cp web/.env.example web/.env
+cd ecotrack-web
+cp .env.local.example .env.local   # fill in the ASGARDEO_* values and NEXT_PUBLIC_MAPBOX_TOKEN
+pnpm install
+pnpm dev                           # http://localhost:3000
 ```
 
-### Backend API — `api/.env`
+`API_URL` already points at the local API. The Asgardeo web application must list `http://localhost:3000/api/auth/callback` and `http://localhost:3000` as authorized redirect URLs.
 
-```dotenv
-# ── Database ────────────────────────────────────────────────
-DATABASE_URL=postgresql://ecotrack:ecotrack@localhost:5432/ecotrack_db
-
-# ── WSO2 Asgardeo (Identity & Auth) ─────────────────────────
-ASGARDEO_ORG_NAME=your-org-name
-ASGARDEO_CLIENT_ID=your-client-id
-ASGARDEO_CLIENT_SECRET=your-client-secret
-ASGARDEO_BASE_URL=https://api.asgardeo.io/t/${ASGARDEO_ORG_NAME}
-
-# ── AWS (S3 object storage for incident media) ───────────────
-AWS_REGION=ap-southeast-1
-AWS_ACCESS_KEY_ID=your-access-key-id
-AWS_SECRET_ACCESS_KEY=your-secret-access-key
-AWS_S3_BUCKET=ecotrack-incident-media
-
-# ── Expo (push notifications, not Firebase) ───────────────────
-# Optional: only needed to raise Expo's push-request rate limit; the API
-# dispatches via expo-server-sdk with no credential required for basic use.
-EXPO_ACCESS_TOKEN=
-
-# ── App ──────────────────────────────────────────────────────
-NODE_ENV=development
-PORT=3001
-```
-
-### Web Dashboard — `web/.env`
-
-```dotenv
-NEXT_PUBLIC_API_URL=http://localhost:3001
-NEXT_PUBLIC_MAPBOX_TOKEN=your-mapbox-public-token
-NEXT_PUBLIC_ASGARDEO_CLIENT_ID=your-client-id
-NEXT_PUBLIC_ASGARDEO_ORG_NAME=your-org-name
-```
-
-:::tip Local Development Shortcuts
-For local development, you can skip the real AWS S3 setup by using [LocalStack](https://localstack.cloud/) for S3 emulation. Push notifications go through the real Expo Push Service (not Firebase) — there's no local emulator needed, since `expo-server-sdk` calls simply no-op for a token that isn't a valid Expo push token.
-:::
-
-## 3. Start the Services with Docker Compose
-
-A `docker-compose.yml` at the monorepo root defines the following services:
-
-| Service | Image | Port | Description |
-|---|---|---|---|
-| `postgres` | `postgis/postgis:15-3.3` | `5432` | PostgreSQL 15 with PostGIS 3 extension |
-| `api` | Local build (`api/Dockerfile`) | `3001` | NestJS REST API |
-| `web` | Local build (`web/Dockerfile`) | `3000` | Next.js web dashboard |
-
-Start all services:
+## 4. Mobile app
 
 ```bash
-docker compose up --build
+cd ecotrack-mobile
+cp .env.example .env
+pnpm install
+pnpm android                       # native build on an emulator or a USB-connected device
 ```
 
-To run in detached mode (background):
+In `.env`, set:
 
-```bash
-docker compose up --build -d
-```
+- `EXPO_PUBLIC_API_BASE_URL`: `http://10.0.2.2:4000` for the Android emulator, or `http://<your LAN IP>:4000` for a physical phone.
+- `EXPO_PUBLIC_ASGARDEO_ISSUER` and `EXPO_PUBLIC_ASGARDEO_MOBILE_CLIENT_ID` from your Asgardeo mobile application.
+- `EXPO_PUBLIC_MAPBOX_TOKEN`.
 
-## 4. Run Database Migrations
+On a physical phone, photo uploads and photo URLs point at MinIO through the API's `S3_ENDPOINT`. Set `S3_ENDPOINT=http://<your LAN IP>:9000` in `ecotrack-api/.env` so the phone can reach it.
 
-Once the `postgres` and `api` containers are healthy, run the Drizzle ORM migrations to initialize the schema:
+## Next steps
 
-```bash
-docker compose exec api pnpm drizzle-kit migrate
-```
-
-This applies all pending migrations, creates the multi-tenant tables, and sets up the PostgreSQL RLS policies.
-
-## 5. Verify the Stack
-
-| Service | URL | Expected Response |
-|---|---|---|
-| NestJS API | `http://localhost:3001/health` | `{"status":"ok"}` |
-| Next.js Web | `http://localhost:3000` | Admin login page |
-| PostgreSQL | `localhost:5432` | Connect with any psql client |
-
-Use a database client (e.g., [TablePlus](https://tableplus.com/) or `psql`) to verify PostGIS is enabled:
-
-```sql
-SELECT PostGIS_Version();
-```
-
-## 6. Seed Development Data (Optional)
-
-To seed the database with a sample tenant, admin user, and test incidents:
-
-```bash
-docker compose exec api pnpm seed
-```
-
-This creates:
-- 1 tenant organization (`Bolgoda Lake Conservation Society`)
-- 1 admin account (`admin@bolgoda.local` / `password: admin123`)
-- 5 sample incidents with geo-coordinates around Bolgoda Lake, Sri Lanka
-
-## Common Issues
-
-| Symptom | Likely Cause | Fix |
-|---|---|---|
-| `FATAL: role "ecotrack" does not exist` | Container started before volume was initialized | `docker compose down -v` then `docker compose up --build` |
-| `PostGIS extension not found` | Using plain PostgreSQL image instead of PostGIS image | Confirm the `postgres` service uses `postgis/postgis:15-3.3` |
-| `ECONNREFUSED 127.0.0.1:5432` | API started before the database was ready | Add `depends_on: postgres: condition: service_healthy` in `docker-compose.yml` |
-| Next.js shows blank API responses | `NEXT_PUBLIC_API_URL` points to wrong port | Check `web/.env` matches the API container port |
-| Drizzle migration fails | `DATABASE_URL` not set or wrong | Verify `api/.env` and that the `postgres` container is running |
+- [Local Development](../04-runbooks/local-development.md): commands, tests, resetting data, troubleshooting
+- [External Services](../04-runbooks/external-services.md): Asgardeo, Mapbox, push
+- [AWS Deployment](../04-runbooks/aws-deployment.md): running it for real
