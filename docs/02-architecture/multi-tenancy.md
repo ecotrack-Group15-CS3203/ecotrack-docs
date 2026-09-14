@@ -93,7 +93,7 @@ A handful of reads and writes are *legitimately* cross-tenant, and each has its 
 
 | Case | Mechanism |
 |---|---|
-| **Global Incident Pool.** An unclaimed incident (`organisation_id IS NULL`) must be visible to every organisation browsing the pool, and claimable by whichever one gets there first. | The `incidents` RLS policy itself has an `organisation_id IS NULL` branch. Claim atomicity comes from a conditional `UPDATE ... WHERE organisation_id IS NULL`, not from RLS or row locking — see [Incidents](../03-api/incidents#the-global-incident-pool). |
+| **Global Incident Pool.** An unclaimed incident (`organisation_id IS NULL`) must be visible to every organisation browsing the pool, and claimable by whichever one gets there first. | The `incidents` RLS policy itself has an `organisation_id IS NULL` branch. Claim atomicity comes from a conditional `UPDATE ... WHERE organisation_id IS NULL`, not from RLS or row locking — see [Incidents](../03-api/incidents.md#the-global-incident-pool). |
 | **Public hazard map.** `GET /v1/incidents/nearby` and the public fallback on `GET /v1/incidents/:id` must read incidents outside the caller's own tenant, with a reduced projection. | The service explicitly runs `SELECT set_config('app.public_map_read', 'true', true)` (transaction-local — reverts at commit) before the query; a dedicated, `SELECT`-only policy reads that flag. |
 | **Invitation / invite-link token lookup.** A citizen with no organisation needs to look up or redeem a token belonging to some other org, before they have any membership there. | The secret token itself is the authorization. The service sets `app.invitation_token_lookup` before the query; the token is unguessable (128-bit random, hashed at rest for invite links), so this is safe. |
 | **Join-request submission's admin notification + audit entry.** A citizen submitting a join request has an empty tenant, but the notification/audit rows it creates are scoped to the *target* org. | The service sets `app.join_request_submission` before those two specific writes; the `join_requests` insert itself needs no such flag, since it's authorized by `user_id = current_user_id` directly. |
@@ -167,7 +167,7 @@ A prospective volunteer joins an organisation one of two ways, both gated by the
 1. **Join Request** — `POST /v1/organisations/join-request` with the citizen's current `lat`/`lng`. An admin approves or rejects it. Approval sets `role: volunteer` and `organisationId` immediately.
 2. **Shareable Invite Link** — an admin generates a token-bearing link (optionally use-capped); the citizen redeems it via `POST /v1/organisations/invites/accept`, again submitting a fresh `lat`/`lng`.
 
-Both paths are checked against the same predicate: `ST_DWithin(organisation.service_area_center, submitted_point, service_area_radius_km * 1000)`. A location outside that area gets a `422`. See [Organisations](../03-api/organizations#join-requests) for the full request/response shapes.
+Both paths are checked against the same predicate: `ST_DWithin(organisation.service_area_center, submitted_point, service_area_radius_km * 1000)`. A location outside that area gets a `422`. See [Organisations](../03-api/organizations.md#join-requests) for the full request/response shapes.
 
 ---
 

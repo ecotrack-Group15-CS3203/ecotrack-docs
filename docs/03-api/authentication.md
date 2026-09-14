@@ -130,7 +130,7 @@ A representative sample — see [Incidents](./incidents), [Organisations](./orga
 | `POST /v1/organisations/:id/invites` | — | — | ✓ | — |
 | `PATCH /v1/organisations/:id/activate` | — | — | — | ✓ |
 
-Routes taking an `:organisationId` path parameter are additionally guarded by `TenantGuard`: the caller's own `organisationId` (resolved from the `users` table, never trusted from the token) must match the path parameter, or the request is rejected with `403` — a platform admin is exempt from this check. See [Multi-Tenancy](../02-architecture/multi-tenancy).
+Routes taking an `:organisationId` path parameter are additionally guarded by `TenantGuard`: the caller's own `organisationId` (resolved from the `users` table, never trusted from the token) must match the path parameter, or the request is rejected with `403` — a platform admin is exempt from this check. See [Multi-Tenancy](../02-architecture/multi-tenancy.md).
 
 ---
 

@@ -161,9 +161,9 @@ List the authenticated user's own reported incidents, claimed or not.
 
 **Auth:** Any authenticated user
 
-**Query parameters:** `page`, `limit` (standard [pagination](./index#pagination))
+**Query parameters:** `page`, `limit` (standard [pagination](./index.md#pagination))
 
-**Response `200`:** `{ items, total, page, limit }` — see [Pagination](./index#pagination).
+**Response `200`:** `{ items, total, page, limit }` — see [Pagination](./index.md#pagination).
 
 ---
 

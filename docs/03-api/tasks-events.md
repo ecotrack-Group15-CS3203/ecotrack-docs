@@ -82,7 +82,7 @@ Create a task from a claimed incident and assign it to one volunteer.
 - The incident must belong to this organisation, have `verificationStatus: "approved"`, and satisfy the org's `taskCreationMinStageId` precondition if one is configured (see [Workflow Stage Rules](./workflows#workflow-stage-rules))
 - `assignedTo` must be an active `volunteer` of this organisation
 
-If the trigger fires, the incident is advanced per `taskCreationTargetStageId` (or the next stage by `position` if that's `null`). A due-date reminder is scheduled for 24 hours before `dueDate` via the notification outbox (see [Multi-Tenancy](../02-architecture/multi-tenancy) and the note on push delivery in [Authentication](./authentication)).
+If the trigger fires, the incident is advanced per `taskCreationTargetStageId` (or the next stage by `position` if that's `null`). A due-date reminder is scheduled for 24 hours before `dueDate` via the notification outbox (see [Multi-Tenancy](../02-architecture/multi-tenancy.md) and the note on push delivery in [Authentication](./authentication)).
 
 **Response `201`:** Full [Task Object](#task-object).
 

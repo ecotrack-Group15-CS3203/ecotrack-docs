@@ -37,7 +37,7 @@ Every user belongs to at most one organisation at a time (single-org-per-user); 
 | `serviceAreaRadiusKm` | Must be one of `1`, `5`, `10`, `25`, `50` |
 | `isActive` | Set by a platform admin via activate/deactivate; inactive organisations cannot accept invitation/join-request/invite-link redemptions |
 
-`organisations` is deliberately **not** row-level-security protected — it's tenant-agnostic by design, readable by any authenticated user for directory/search purposes. See [Multi-Tenancy](../02-architecture/multi-tenancy) for how that differs from every other table.
+`organisations` is deliberately **not** row-level-security protected — it's tenant-agnostic by design, readable by any authenticated user for directory/search purposes. See [Multi-Tenancy](../02-architecture/multi-tenancy.md) for how that differs from every other table.
 
 ---
 
@@ -327,7 +327,7 @@ Rate-limited. No `@Roles` restriction — a citizen with no membership is the ex
 }
 ```
 
-`lat`/`lng` is the caller's current position, checked against the target organisation's service area. On success this also records the coordinates as the user's `homeLocation` (SRS 3.11.1 — used only for join/invite eligibility, never for incident proximity matching; see [Multi-Tenancy](../02-architecture/multi-tenancy) and the [Authentication](./authentication) page's note on `homeLocation` vs `alertCenter`).
+`lat`/`lng` is the caller's current position, checked against the target organisation's service area. On success this also records the coordinates as the user's `homeLocation` (SRS 3.11.1 — used only for join/invite eligibility, never for incident proximity matching; see [Multi-Tenancy](../02-architecture/multi-tenancy.md) and the [Authentication](./authentication) page's note on `homeLocation` vs `alertCenter`).
 
 **Response `201`:** the join request row, `status: "pending"`.
 
