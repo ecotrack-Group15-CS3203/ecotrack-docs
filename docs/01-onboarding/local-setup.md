@@ -57,9 +57,10 @@ AWS_ACCESS_KEY_ID=your-access-key-id
 AWS_SECRET_ACCESS_KEY=your-secret-access-key
 AWS_S3_BUCKET=ecotrack-incident-media
 
-# ── Firebase (push notifications) ───────────────────────────
-FIREBASE_PROJECT_ID=your-firebase-project-id
-FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
+# ── Expo (push notifications, not Firebase) ───────────────────
+# Optional: only needed to raise Expo's push-request rate limit; the API
+# dispatches via expo-server-sdk with no credential required for basic use.
+EXPO_ACCESS_TOKEN=
 
 # ── App ──────────────────────────────────────────────────────
 NODE_ENV=development
@@ -76,7 +77,7 @@ NEXT_PUBLIC_ASGARDEO_ORG_NAME=your-org-name
 ```
 
 :::tip Local Development Shortcuts
-For local development, you can skip the real AWS S3 and Firebase setup by using [LocalStack](https://localstack.cloud/) for S3 emulation and the Firebase Emulator Suite for push notifications.
+For local development, you can skip the real AWS S3 setup by using [LocalStack](https://localstack.cloud/) for S3 emulation. Push notifications go through the real Expo Push Service (not Firebase) — there's no local emulator needed, since `expo-server-sdk` calls simply no-op for a token that isn't a valid Expo push token.
 :::
 
 ## 3. Start the Services with Docker Compose

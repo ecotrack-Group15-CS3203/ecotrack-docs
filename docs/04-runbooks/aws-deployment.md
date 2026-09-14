@@ -265,8 +265,10 @@ ASGARDEO_CLIENT_ID=your-client-id
 ASGARDEO_CLIENT_SECRET=your-client-secret
 AWS_REGION=ap-southeast-1
 AWS_S3_BUCKET=ecotrack-incident-media
-FIREBASE_PROJECT_ID=your-firebase-project
-FIREBASE_SERVICE_ACCOUNT_KEY=<json-string>
+# Push notifications go through the Expo Push Service, not Firebase — no
+# service-account credential is required. EXPO_ACCESS_TOKEN is optional,
+# only needed to raise Expo's push-request rate limit.
+EXPO_ACCESS_TOKEN=
 ```
 
 When using the IAM Role on EC2 (Step 3), `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are **not needed** — the AWS SDK automatically uses instance metadata credentials.

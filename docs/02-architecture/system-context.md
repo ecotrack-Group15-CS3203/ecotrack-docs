@@ -17,21 +17,21 @@ The system context diagram shows EcoTrack as a black box alongside the people wh
 C4Context
   title EcoTrack — Level 1: System Context
 
-  Person(citizen, "Citizen / Volunteer", "Reports geo-tagged environmental hazards and tracks assigned cleanup tasks via the mobile app")
-  Person(admin, "Organization Admin", "Verifies incidents, creates tasks and events, and configures workflows via the web dashboard")
+  Person(citizen, "Citizen / Volunteer", "Reports geo-tagged environmental hazards into the Global Incident Pool and tracks assigned cleanup tasks via the mobile app")
+  Person(admin, "Organisation Admin", "Claims pooled incidents within their org's service area, creates tasks and events, and configures workflow stages via the web dashboard")
 
   System(ecotrack, "EcoTrack Platform", "Multi-tenant SaaS for community environmental monitoring and cleanup coordination")
 
-  System_Ext(asgardeo, "WSO2 Asgardeo", "Identity-as-a-Service — OAuth2 authentication, JWT issuance, and user management")
+  System_Ext(asgardeo, "WSO2 Asgardeo", "Identity-as-a-Service — OAuth2 authentication and JWT issuance only; role/org membership is resolved from EcoTrack's own database, not from Asgardeo")
   System_Ext(s3, "Amazon S3", "Object storage for user-uploaded incident photos and cleanup evidence")
-  System_Ext(firebase, "Firebase FCM", "Real-time push notifications for proximity alerts and task assignments")
+  System_Ext(expo, "Expo Push Service", "Delivers push notifications to the React Native app from device Expo push tokens")
   System_Ext(mapbox, "Mapbox / MapTiler", "Commercial OpenStreetMap provider for map tile rendering and geocoding (up to 100k free requests/month)")
 
   Rel(citizen, ecotrack, "Reports incidents, views map, tracks tasks", "HTTPS")
-  Rel(admin, ecotrack, "Manages incidents, assigns tasks, configures workflows", "HTTPS")
-  Rel(ecotrack, asgardeo, "Authenticates users, validates JWT tokens", "OAuth2 / HTTPS")
-  Rel(ecotrack, s3, "Uploads and retrieves incident media", "AWS SDK / HTTPS")
-  Rel(ecotrack, firebase, "Dispatches proximity and task notifications", "FCM / HTTPS")
+  Rel(admin, ecotrack, "Claims incidents, assigns tasks, configures workflows", "HTTPS")
+  Rel(ecotrack, asgardeo, "Authenticates users, validates JWT tokens against JWKS", "OAuth2 / HTTPS")
+  Rel(ecotrack, s3, "Uploads and retrieves incident/task media via presigned URLs", "AWS SDK / HTTPS")
+  Rel(ecotrack, expo, "Dispatches proximity, task, and event push notifications from an outbox polled every 15s", "Expo Push API / HTTPS")
   Rel(ecotrack, mapbox, "Geocodes locations, fetches map tiles", "REST / HTTPS")
 
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
@@ -41,9 +41,9 @@ C4Context
 
 | System | Role in EcoTrack |
 |---|---|
-| **WSO2 Asgardeo** | Handles all user authentication and OAuth2 token issuance. The NestJS API validates bearer tokens on every request. Tenant data isolation is handled separately via PostgreSQL RLS — not Asgardeo's B2B org model — to scale beyond the free tier's 3-org limit. |
-| **Amazon S3** | Stores all unstructured media (incident photos, cleanup evidence). Only the S3 URL is saved in the relational database, preventing BLOB bloat and keeping RDS storage minimal. |
-| **Firebase FCM** | Sends real-time push notifications to mobile devices — proximity alerts for nearby incidents and task assignment notifications. |
+| **WSO2 Asgardeo** | Handles authentication only — OAuth2 token issuance and JWKS-based verification. The NestJS API validates bearer tokens on every request but does **not** trust any role/organisation claim from the token; it just-in-time provisions a `users` row on first sight of a token subject and resolves role/organisation membership from that row on every request thereafter. This is also why Asgardeo's free-tier limitation (3 B2B organisations) is irrelevant — organisation membership isn't modeled in Asgardeo at all. |
+| **Amazon S3** | Stores all unstructured media (incident photos, task completion evidence). Only the object's URL is saved in the relational database, preventing BLOB bloat and keeping RDS storage minimal. Reads are authorization-checked before a presigned GET is issued — not merely obscure-URL protection. |
+| **Expo Push Service** | Delivers push notifications to the React Native app (not Firebase Cloud Messaging). The backend never calls it synchronously inline with the triggering request — it writes a row to a `notification_dispatches` outbox table, and a cron polls that table roughly every 15 seconds to fan out proximity alerts, task-due reminders, and event reminders. |
 | **Mapbox / MapTiler** | Provides enterprise-grade OSM tile infrastructure for the incident map. Chosen over direct public OSM servers (which enforce a hard limit of 1 geocoding request/second) and Google Maps (which incurs rapid cost escalation). |
 
 ---
@@ -60,15 +60,15 @@ C4Container
   Person(admin, "Organization Admin", "Web browser user")
 
   System_Boundary(platform, "EcoTrack Platform") {
-    Container(web, "Web Dashboard", "Next.js 14 / TypeScript", "Server-side rendered admin interface. Incident verification, task assignment, volunteer management, workflow configuration, and analytics dashboard.")
+    Container(web, "Web Dashboard", "Next.js 14 / TypeScript", "Server-side rendered admin interface, plus the public /orgs/[slug] page. Incident pool browsing/claim, task assignment, volunteer management, workflow stage + stage-rule configuration, and analytics dashboard.")
     Container(mobile, "Mobile App", "React Native / TypeScript", "Cross-platform iOS + Android app. Geo-tagged incident reporting, camera integration, task tracking, RSVP, and map-based proximity alerts.")
-    Container(api, "Backend API", "NestJS / TypeScript", "Modular monolith REST API. Handles authentication middleware, RBAC enforcement, multi-tenant session routing, spatial queries via PostGIS, media upload to S3, and FCM dispatch.")
-    ContainerDb(db, "Relational Database", "PostgreSQL 15 + PostGIS 3", "Stores incidents, users, organizations, tasks, events, and workflow stages. RLS policies enforce per-tenant row isolation. PostGIS geometry types and GiST indexes power spatial radius queries.")
+    Container(api, "Backend API", "NestJS 11 / TypeScript", "Modular monolith REST API. Handles Asgardeo JWT validation, DB-resolved RBAC (never trusting a token role claim), per-request RLS session setup, spatial queries via PostGIS, S3 presigned URLs, and the notification outbox/dispatch cron.")
+    ContainerDb(db, "Relational Database", "PostgreSQL 15 + PostGIS 3", "Stores incidents (including the unclaimed Global Incident Pool), users, organisations, tasks, task assignments, events, workflow stages, and workflow stage rules. RLS policies enforce per-organisation row isolation on most tables; `organisations` and `users` are deliberately exempt. PostGIS geometry types and GiST indexes power spatial radius queries.")
   }
 
-  System_Ext(s3, "Amazon S3", "Incident media")
-  System_Ext(asgardeo, "WSO2 Asgardeo", "OAuth2 / JWT")
-  System_Ext(firebase, "Firebase FCM", "Push notifications")
+  System_Ext(s3, "Amazon S3", "Incident/task media")
+  System_Ext(asgardeo, "WSO2 Asgardeo", "OAuth2 / JWT issuance only")
+  System_Ext(expo, "Expo Push Service", "Push notifications")
   System_Ext(mapbox, "Mapbox / MapTiler", "Maps & geocoding")
 
   Rel(citizen, mobile, "Uses", "Mobile OS")
@@ -76,9 +76,9 @@ C4Container
   Rel(mobile, api, "REST API calls", "HTTPS / JSON")
   Rel(web, api, "REST API calls", "HTTPS / JSON")
   Rel(api, db, "Reads and writes via Drizzle ORM", "TCP / SQL")
-  Rel(api, s3, "Stores incident media", "HTTPS / AWS SDK")
-  Rel(api, asgardeo, "Validates bearer tokens", "HTTPS / OIDC")
-  Rel(api, firebase, "Sends notifications", "HTTPS / FCM")
+  Rel(api, s3, "Stores incident/task media", "HTTPS / AWS SDK")
+  Rel(api, asgardeo, "Validates bearer tokens against JWKS", "HTTPS / OIDC")
+  Rel(api, expo, "Dispatches notifications from the outbox, polled every 15s", "HTTPS / Expo Push API")
   Rel(mobile, mapbox, "Renders map tiles", "HTTPS")
   Rel(web, mapbox, "Renders map tiles", "HTTPS")
 ```
@@ -87,10 +87,10 @@ C4Container
 
 | Container | Technology | Key Responsibilities |
 |---|---|---|
-| **Web Dashboard** | Next.js 14, TypeScript | Incident list + verification flow (≤3 clicks), task/event creation, dynamic workflow stage editor, volunteer roster, analytics. SSR via Next.js App Router for SEO on public campaign pages. |
-| **Mobile App** | React Native, TypeScript | Incident submission (GPS + camera), assigned task list, event RSVP, evidence upload, proximity alert subscription. Single codebase for iOS and Android. |
-| **Backend API** | NestJS, TypeScript | Auth middleware (validates Asgardeo JWT), RBAC guard, tenant session variable injection (for RLS), incident CRUD with PostGIS spatial queries, S3 presigned URL generation, FCM notification dispatch, dynamic workflow CRUD. |
-| **Relational Database** | PostgreSQL 15 + PostGIS 3 | Single shared instance for all tenants. RLS policies restrict every row to the current tenant session. PostGIS `geography` columns store incident coordinates; GiST indexes accelerate radius queries to under 500 ms for 95% of requests. |
+| **Web Dashboard** | Next.js 14, TypeScript | Incident pool browsing and claim flow, task/event creation, workflow stage + stage-rule editor, volunteer roster, analytics, and the public `/orgs/[slug]` page backed by `GET /v1/organisations/by-slug/:slug`. SSR via Next.js App Router for SEO on public organisation pages. |
+| **Mobile App** | React Native, TypeScript | Incident submission (GPS + camera) into the pool, assigned task list, event RSVP, evidence upload, proximity alert subscription via Expo push tokens. Single codebase for iOS and Android. |
+| **Backend API** | NestJS 11, TypeScript | Asgardeo JWT validation (JWKS, RS256), just-in-time user provisioning, DB-resolved role/org membership (never a trusted token claim), per-request RLS session variable injection via a request-scoped transaction, incident-pool/claim spatial queries with PostGIS, S3 presigned URL generation, and the notification outbox/dispatch cron (Expo Push, not FCM). |
+| **Relational Database** | PostgreSQL 15 + PostGIS 3 | Single shared instance for all organisations. RLS policies restrict most tables to the current tenant session, with narrow, explicit exceptions for the incident pool, public map reads, and token-based lookups (see [Multi-Tenancy](./multi-tenancy)). PostGIS `geography` columns store coordinates; GiST indexes accelerate radius queries to under 500 ms at the 95th percentile. |
 
 ---
 
@@ -119,7 +119,7 @@ graph TD
 
   subgraph EXT["External Cloud Services"]
     ASGARDEO_E["WSO2 Asgardeo"]
-    FIREBASE_E["Firebase FCM"]
+    EXPO_E["Expo Push Service"]
     MAPBOX_E["Mapbox / MapTiler"]
   end
 
@@ -129,7 +129,7 @@ graph TD
   API_C --> RDS
   API_C --> S3_B
   API_C --> ASGARDEO_E
-  API_C --> FIREBASE_E
+  API_C --> EXPO_E
   WEB_C --> MAPBOX_E
   API_C --> MAPBOX_E
 ```

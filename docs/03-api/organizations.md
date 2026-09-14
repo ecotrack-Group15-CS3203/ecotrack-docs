@@ -1,41 +1,51 @@
 ---
 sidebar_position: 4
-title: Organizations
+title: Organisations
 ---
 
-# Organizations
+# Organisations
 
-An Organization (Tenant) is an independent environmental group that manages its own incidents, volunteers, tasks, and events on the EcoTrack platform. Each organization operates in a fully isolated tenant workspace.
+An Organisation is an independent environmental group that manages its own claimed incidents, volunteers, tasks, and events on the EcoTrack platform. Every organisation, table, and route in this codebase uses the British spelling — **organisation** / `organisations`, never "organization".
 
-**Base path:** `/v1/organizations`
+Every user belongs to at most one organisation at a time (single-org-per-user); `role` and `organisationId` live directly on the `users` row.
+
+**Base path:** `/v1/organisations`
 
 ---
 
-## Organization Object
+## Organisation Object
 
 ```json
 {
   "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
   "name": "Bolgoda Lake Conservation Society",
-  "slug": "bolgoda-lake",
+  "slug": "bolgoda-lake-conservation-society",
   "description": "A volunteer-driven group restoring the ecological health of Bolgoda Lake, Sri Lanka.",
-  "location": {
-    "lat": 6.8235,
-    "lng": 80.0399
-  },
-  "memberCount": 34,
-  "incidentCount": 127,
-  "createdAt": "2026-01-15T09:00:00Z"
+  "contactEmail": "admin@bolgoda.org",
+  "isActive": true,
+  "serviceAreaCenter": { "lat": 6.8235, "lng": 80.0399 },
+  "serviceAreaRadiusKm": 10,
+  "createdAt": "2026-01-15T09:00:00Z",
+  "updatedAt": "2026-01-15T09:00:00Z"
 }
 ```
+
+| Field | Description |
+|---|---|
+| `slug` | Auto-generated from `name` at registration (lowercased, non-alphanumerics collapsed to `-`), unique. Collisions get a numeric suffix: `name`, `name-2`, `name-3`, ... Backs the public `/orgs/[slug]` page on `ecotrack-web`. |
+| `serviceAreaCenter` / `serviceAreaRadiusKm` | **Required at registration.** Governs which pooled incidents this org can claim (`GET /v1/incidents/pool`), and gates join-request/invite-link eligibility for prospective volunteers |
+| `serviceAreaRadiusKm` | Must be one of `1`, `5`, `10`, `25`, `50` |
+| `isActive` | Set by a platform admin via activate/deactivate; inactive organisations cannot accept invitation/join-request/invite-link redemptions |
+
+`organisations` is deliberately **not** row-level-security protected — it's tenant-agnostic by design, readable by any authenticated user for directory/search purposes. See [Multi-Tenancy](../02-architecture/multi-tenancy) for how that differs from every other table.
 
 ---
 
 ## Endpoints
 
-### `POST /v1/organizations`
+### `POST /v1/organisations`
 
-Register a new tenant organization on the platform. The authenticated user becomes the first Organization Admin of the new tenant.
+Register a new organisation. The authenticated user becomes its first `org_admin`, unless `initialAdminEmail` names someone else. Rate-limited (10 requests/minute) — new-tenant registration is brute-force/enumeration sensitive.
 
 **Auth:** Any authenticated user
 
@@ -44,223 +54,173 @@ Register a new tenant organization on the platform. The authenticated user becom
 ```json
 {
   "name": "Bolgoda Lake Conservation Society",
-  "slug": "bolgoda-lake",
   "description": "A volunteer-driven group restoring the ecological health of Bolgoda Lake, Sri Lanka.",
-  "location": {
-    "lat": 6.8235,
-    "lng": 80.0399
-  }
+  "contactEmail": "admin@bolgoda.org",
+  "serviceAreaCenter": { "lat": 6.8235, "lng": 80.0399 },
+  "serviceAreaRadiusKm": 10,
+  "initialAdminEmail": "someone-else@example.com"
 }
 ```
 
-| Field | Required | Constraints |
+| Field | Required | Notes |
 |---|---|---|
-| `name` | ✓ | 3–100 characters |
-| `slug` | ✓ | 3–50 characters, lowercase, alphanumeric + hyphens only, globally unique |
-| `description` | — | Max 500 characters |
-| `location` | — | If provided, both `lat` and `lng` are required |
+| `name` | ✓ | Non-empty |
+| `contactEmail` | ✓ | Valid email |
+| `description` | — | |
+| `serviceAreaCenter` | ✓ | `{lat, lng}` |
+| `serviceAreaRadiusKm` | ✓ | One of `1`/`5`/`10`/`25`/`50` |
+| `initialAdminEmail` | — | Omitted: the caller becomes admin. Supplied with a different address: that account is promoted directly if it already exists, or sent an admin invitation (72h TTL) if not |
+
+A user who already belongs to an organisation cannot register another for themselves (they can still stand one up for someone else via `initialAdminEmail`).
 
 **Response `201`:**
 
 ```json
 {
-  "organization": { /* Organization Object */ },
-  "adminUser": {
-    "id": "3a1b2c4d-...",
-    "email": "admin@bolgoda.org",
-    "role": "org_admin"
-  }
+  "organisation": { /* Organisation Object */ },
+  "adminInvitation": null,
+  "adminAlreadyExisted": true
 }
 ```
 
+Registration also seeds the organisation's five default [workflow stages](./workflows) and its default [workflow stage rules](./workflows#workflow-stage-rules) row.
+
 **Errors:**
 
-| Status | Code | Cause |
-|---|---|---|
-| `409` | `SLUG_TAKEN` | The requested slug is already registered |
+| Status | Cause |
+|---|---|
+| `409` | The caller already belongs to an organisation and did not name someone else via `initialAdminEmail` |
 
 ---
 
-### `GET /v1/organizations`
+### `GET /v1/organisations`
 
-List all public organizations on the platform. Used to power the volunteer enrollment directory.
+List **every** organisation on the platform, active or not. This is a platform-admin operation, not the public directory — see `GET /v1/organisations/public` below for that.
 
-**Auth:** Any authenticated user
+**Auth:** platform admin
+
+**Response `200`:** a bare array of full [Organisation Objects](#organisation-object).
+
+---
+
+### `GET /v1/organisations/public`
+
+The public organisation directory — an unauthenticated org picker used by the mobile registration flow and the volunteer-enrollment directory.
+
+**Auth:** none (public)
 
 **Query parameters:**
 
 | Parameter | Type | Description |
 |---|---|---|
-| `q` | string | Text search on `name` and `description` |
-| `lat` + `lng` + `radius` | number | Filter orgs within a geographic radius (metres) |
-| `page` | number | Page number (default `1`) |
-| `limit` | number | Results per page (default `20`, max `100`) |
+| `q` | string | Case-insensitive substring match on `name` |
+| `lat` + `lng` | number | Both-or-neither. When supplied, each result carries `distanceMeters` and `eligible` |
+| `radius` | number | Optional extra ceiling (metres, 100–50,000) on how far an organisation's centre may be. Without a point, ignored |
+| `page` / `limit` | number | Standard pagination |
+
+The `eligible` flag tests **coverage, not proximity** — whether the organisation's own service area reaches the given point — the same predicate a join request or invite-link redemption is checked against, so the client can grey out a Join button before the citizen wastes a request.
 
 **Response `200`:**
 
 ```json
 {
-  "data": [ /* array of Organization Objects */ ],
-  "meta": { "total": 12, "page": 1, "limit": 20, "totalPages": 1 }
+  "items": [
+    {
+      "id": "f47ac10b-...",
+      "name": "Bolgoda Lake Conservation Society",
+      "slug": "bolgoda-lake-conservation-society",
+      "description": "...",
+      "contactEmail": "admin@bolgoda.org",
+      "serviceAreaRadiusKm": 10,
+      "distanceMeters": 812.4,
+      "eligible": true
+    }
+  ],
+  "total": 12,
+  "page": 1,
+  "limit": 20
 }
 ```
+
+`distanceMeters`/`eligible` are `null` when no point was supplied — distinguishing "we didn't check" from "checked and out of range". Only active (`isActive: true`) organisations are returned.
 
 ---
 
-### `GET /v1/organizations/:id`
+### `GET /v1/organisations/by-slug/:slug`
 
-Get full details of a single organization by ID or slug.
+Public lookup by slug, backing the `ecotrack-web` `/orgs/[slug]` server-rendered page.
 
-**Auth:** Any authenticated user
+**Auth:** none (public)
 
-**Response `200`:** Full [Organization Object](#organization-object).
-
----
-
-### `POST /v1/organizations/join-request`
-
-Submit a request to join an organization as a volunteer. The request remains pending until an Organization Admin approves or rejects it.
-
-**Auth:** `citizen`, `volunteer`
-
-**Request body:**
-
-```json
-{
-  "organizationId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-  "message": "I am a local resident and want to help with lake cleanups."
-}
-```
-
-**Response `201`:**
-
-```json
-{
-  "id": "join-request-uuid",
-  "status": "pending",
-  "organizationId": "f47ac10b-...",
-  "requestedAt": "2026-07-31T10:00:00Z"
-}
-```
+**Response `200`:** `{ id, name, slug, description, contactEmail, serviceAreaRadiusKm }` — the same reduced projection as the directory, minus `distanceMeters`/`eligible` (there's no caller point to measure from on an anonymous page view).
 
 **Errors:**
 
-| Status | Code | Cause |
-|---|---|---|
-| `409` | `ALREADY_MEMBER` | The user is already a member of this organization |
-| `409` | `REQUEST_PENDING` | A pending join request already exists for this user and org |
+| Status | Cause |
+|---|---|
+| `404` | No organisation with this slug |
 
 ---
 
-### `GET /v1/organizations/:id/join-requests`
+### `GET /v1/organisations/:organisationId`
 
-List pending join requests for an organization.
+Full organisation details by ID.
 
-**Auth:** `org_admin`
+**Auth:** `org_admin` (own org), platform admin
 
-**Query parameters:** `status` (`pending` \| `approved` \| `rejected`), `page`, `limit`
-
-**Response `200`:**
-
-```json
-{
-  "data": [
-    {
-      "id": "join-request-uuid",
-      "user": { "id": "...", "name": "Nimal P.", "email": "nimal@example.com" },
-      "message": "I am a local resident...",
-      "status": "pending",
-      "requestedAt": "2026-07-31T10:00:00Z"
-    }
-  ],
-  "meta": { "total": 3, "page": 1, "limit": 20, "totalPages": 1 }
-}
-```
+**Response `200`:** Full [Organisation Object](#organisation-object).
 
 ---
 
-### `PATCH /v1/organizations/:id/join-requests/:requestId`
+### `PATCH /v1/organisations/:organisationId`
 
-Approve or reject a pending join request.
+Update an organisation's profile, including its service area. Changing the service area only affects future pool queries — it does not retroactively touch already-claimed incidents.
 
-**Auth:** `org_admin`
+**Auth:** `org_admin` (own org), platform admin
 
-**Request body:**
+**Request body (all fields optional):**
 
 ```json
 {
-  "status": "approved"
+  "name": "Updated name",
+  "description": "Updated description",
+  "contactEmail": "new-contact@bolgoda.org",
+  "serviceAreaCenter": { "lat": 6.83, "lng": 80.04 },
+  "serviceAreaRadiusKm": 25
 }
 ```
 
-On approval, the user's role is set to `volunteer` and their `organizationId` JWT claim is updated on next login.
+`serviceAreaCenter` and `serviceAreaRadiusKm` must be supplied together or not at all.
 
-**Response `200`:** Updated join request object.
+**Response `200`:** Updated [Organisation Object](#organisation-object).
 
 ---
 
-### `POST /v1/organizations/:id/invites`
+### `PATCH /v1/organisations/:organisationId/activate` / `PATCH /v1/organisations/:organisationId/deactivate`
 
-Generate a secure, cryptographic invite link. The link is time-limited (default 7 days) and can only be used once.
+Platform-admin controls over whether an organisation can accept new members. An inactive organisation's invitations/join-requests/invite-links are refused.
 
-**Auth:** `org_admin`
+**Auth:** platform admin
 
-**Request body:**
-
-```json
-{
-  "role": "volunteer",
-  "expiresInHours": 168
-}
-```
-
-**Response `201`:**
-
-```json
-{
-  "inviteToken": "eyJhbGciOiJIUzI1NiJ9...",
-  "inviteUrl": "https://ecotrack.example.com/join?token=eyJhbGciOiJIUzI1NiJ9...",
-  "expiresAt": "2026-08-07T10:00:00Z",
-  "role": "volunteer"
-}
-```
-
-The `inviteUrl` can be shared directly with the intended volunteer. Upon opening the URL, the invitee authenticates and is automatically added to the organization with the specified role, without requiring admin approval.
+**Response `200`:** Updated [Organisation Object](#organisation-object).
 
 ---
 
-### `GET /v1/organizations/:id/volunteers`
+### `GET /v1/organisations/:organisationId/members`
 
-List all approved volunteers in an organization.
+List this organisation's members (volunteers and admins — a pending join requester is not yet a member and does not appear here).
 
-**Auth:** `org_admin`
+**Auth:** `org_admin` (own org), platform admin
 
-**Query parameters:** `q` (name/email search), `page`, `limit`
+**Query parameters:** `role` (`citizen`\|`volunteer`\|`org_admin`), `page`, `limit`
 
-**Response `200`:**
-
-```json
-{
-  "data": [
-    {
-      "id": "user-uuid",
-      "name": "Nimal P.",
-      "email": "nimal@example.com",
-      "role": "volunteer",
-      "joinedAt": "2026-02-01T09:00:00Z",
-      "taskCount": 5,
-      "completedTaskCount": 3
-    }
-  ],
-  "meta": { "total": 34, "page": 1, "limit": 20, "totalPages": 2 }
-}
-```
+**Response `200`:** `{ items, total, page, limit }`, each item `{ id, email, fullName, role, isActive, createdAt }`.
 
 ---
 
-### `DELETE /v1/organizations/:id/volunteers/:userId`
+### `DELETE /v1/organisations/:organisationId/volunteers/:userId`
 
-Remove a volunteer from the organization.
+Remove a volunteer from the organisation. They remain a `citizen` account and may join elsewhere later; they are not deleted. Any active task assignment is cancelled and its task returned to `pending` (there is no `unassigned` task status); future event RSVPs are withdrawn.
 
 **Auth:** `org_admin`
 
@@ -268,7 +228,143 @@ Remove a volunteer from the organization.
 
 **Errors:**
 
-| Status | Code | Cause |
-|---|---|---|
-| `403` | `CANNOT_REMOVE_ADMIN` | Cannot remove the last admin of an organization |
-| `404` | `MEMBER_NOT_FOUND` | The user is not a member of this organization |
+| Status | Cause |
+|---|---|
+| `400` | Target is not a `volunteer` (an admin must transfer or step down first), or the caller tried to remove themselves this way |
+| `404` | The user is not a member of this organisation |
+
+---
+
+## Invitations (email-bound, single-use)
+
+### `POST /v1/organisations/:organisationId/invitations`
+
+Send a single-use, email-bound invitation. Distinct from the shareable invite links below.
+
+**Auth:** `org_admin`
+
+**Request body:** `{ "email": "nimal@example.com", "fullName": "Nimal P." }`
+
+**Response `201`:** the invitation row, including its opaque `token`.
+
+The invitee looks it up via `GET /v1/auth/invitations/:token` (public, rate-limited) and accepts via `POST /v1/auth/invitations/:token/accept` (authenticated) — see [Authentication](./authentication#account--profile). Volunteer invitations expire after 7 days, admin invitations after 72 hours.
+
+---
+
+## Shareable Invite Links
+
+Separate from email invitations: an org admin generates a link that can be shared and redeemed by anyone within the service area, optionally with a use-count cap.
+
+### `POST /v1/organisations/:organisationId/invites`
+
+**Auth:** `org_admin`
+
+**Request body:** `{ "maxUses": 20, "expiresInDays": 7 }` — both optional; omitted `maxUses` means unlimited, omitted `expiresInDays` defaults to 7.
+
+**Response `201`:**
+
+```json
+{
+  "inviteLink": { "id": "...", "organisationId": "...", "maxUses": 20, "usesCount": 0, "expiresAt": "2026-08-07T10:00:00Z", "revokedAt": null },
+  "token": "OeF3n1x9k2m..."
+}
+```
+
+Only the token's SHA-256 hash is persisted; the plaintext `token` is returned exactly once.
+
+### `GET /v1/organisations/:organisationId/invites`
+
+**Auth:** `org_admin` — bare array of the org's invite links.
+
+### `DELETE /v1/organisations/:organisationId/invites/:inviteId`
+
+Revoke an invite link. **Auth:** `org_admin`. Response `200`.
+
+### `GET /v1/invites/:token`
+
+Public lookup for the accept screen — org name and validity, nothing enumerable. Rate-limited.
+
+**Response `200`:** `{ organisationName, expired, revoked, exhausted }`
+
+### `POST /v1/organisations/invites/accept`
+
+Redeem an invite link. Rate-limited.
+
+**Auth:** any authenticated user
+
+**Request body:** `{ "token": "...", "lat": 6.8235, "lng": 80.0399 }` — `lat`/`lng` is the caller's **current** position, checked fresh against the organisation's service area, the same way a join request is.
+
+**Response `200`:** `{ "organisationId": "...", "role": "volunteer" }`
+
+**Errors:**
+
+| Status | Cause |
+|---|---|
+| `400` | Link revoked, expired, at its use limit, or the org's service area isn't configured |
+| `409` | Caller already belongs to another organisation |
+| `422` | The submitted location is outside the organisation's service area |
+
+---
+
+## Join Requests
+
+A citizen with no organisation submits a request to join one; an admin approves or rejects it.
+
+### `POST /v1/organisations/join-request`
+
+Rate-limited. No `@Roles` restriction — a citizen with no membership is the expected caller.
+
+**Auth:** any authenticated user
+
+**Request body:**
+
+```json
+{
+  "organisationId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "lat": 6.8235,
+  "lng": 80.0399,
+  "message": "I am a local resident and want to help with lake cleanups."
+}
+```
+
+`lat`/`lng` is the caller's current position, checked against the target organisation's service area. On success this also records the coordinates as the user's `homeLocation` (SRS 3.11.1 — used only for join/invite eligibility, never for incident proximity matching; see [Multi-Tenancy](../02-architecture/multi-tenancy) and the [Authentication](./authentication) page's note on `homeLocation` vs `alertCenter`).
+
+**Response `201`:** the join request row, `status: "pending"`.
+
+**Errors:**
+
+| Status | Cause |
+|---|---|
+| `409` | Already a member of another organisation, or a pending/approved request to this org already exists |
+| `422` | The submitted location is outside the organisation's service area |
+
+---
+
+### `GET /v1/organisations/:organisationId/join-requests`
+
+**Auth:** `org_admin`
+
+**Query parameters:** `status` (`pending`\|`approved`\|`rejected`), `page`, `limit`
+
+**Response `200`:** `{ items, total, page, limit }`, each item including a `requester: { id, fullName, email }` summary.
+
+---
+
+### `PATCH /v1/organisations/:organisationId/join-requests/:requestId`
+
+Approve or reject a pending request.
+
+**Auth:** `org_admin`
+
+**Request body:** `{ "status": "approved" }` — only `approved` or `rejected`; `pending` is never a settable target.
+
+On approval the requester's role becomes `volunteer` and `organisationId` is set immediately (no separate "next login" propagation — the DB row is the source of truth, re-read on every request).
+
+**Response `200`:** Updated join request row.
+
+**Errors:**
+
+| Status | Cause |
+|---|---|
+| `400` | This request has already been resolved |
+| `409` | On approval: the requester joined a different organisation in the meantime |

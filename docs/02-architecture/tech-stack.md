@@ -15,7 +15,7 @@ This page documents every technology selected for EcoTrack and the rationale beh
 |---|---|---|
 | Web Frontend | Next.js + TypeScript | 14 |
 | Mobile App | React Native + TypeScript | 0.74+ |
-| Backend API | NestJS + TypeScript | 10 |
+| Backend API | NestJS + TypeScript | 11 |
 | Database | PostgreSQL + PostGIS | 15 + PostGIS 3 |
 | ORM | Drizzle ORM | Latest |
 | Auth / IAM | WSO2 Asgardeo | Cloud (Free Tier) |
@@ -25,7 +25,7 @@ This page documents every technology selected for EcoTrack and the rationale beh
 | CI/CD | GitHub Actions | — |
 | Testing | Jest (unit) + Cypress (E2E) | — |
 | Maps & Geocoding | Mapbox / MapTiler | — |
-| Push Notifications | Firebase FCM | — |
+| Push Notifications | Expo Push (expo-server-sdk) | — |
 | Containerization | Docker + Docker Compose | — |
 
 ---

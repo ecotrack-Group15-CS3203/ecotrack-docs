@@ -87,7 +87,7 @@ Permissions are requested at the point of use, not at app launch:
 |---|---|---|---|
 | Location (When In Use) | iOS + Android | First map view or report attempt | GPS for incident geo-tagging and proximity alerts |
 | Camera | iOS + Android | First "Take Photo" tap on the report screen | Incident photo capture |
-| Notifications | iOS | After first successful login | Firebase FCM push notification delivery |
+| Notifications | iOS | After first successful login | Expo push notification delivery |
 
 :::caution PDPA Compliance
 The app must display an explicit consent prompt before collecting or transmitting any location data. The user must actively confirm consent before geospatial data is sent to the backend. This aligns with Sri Lanka's Personal Data Protection Act (PDPA) and GDPR principles documented in the requirements.
@@ -95,14 +95,16 @@ The app must display an explicit consent prompt before collecting or transmittin
 
 ---
 
-## Push Notifications (Firebase FCM)
+## Push Notifications (Expo Push)
 
-The app uses **Firebase Cloud Messaging** for real-time alerts. On authenticated app launch, the device FCM token is registered with the backend:
+The app uses the **Expo Push Service** for real-time alerts, not Firebase Cloud Messaging. On authenticated app launch, the device's Expo push token is registered with the backend:
 
 ```typescript
-const fcmToken = await messaging().getToken();
-await apiClient.users.registerDevice({ fcmToken, platform: Platform.OS });
+const expoPushToken = (await Notifications.getExpoPushTokenAsync()).data;
+await apiClient.patch('/v1/auth/push-token', { pushToken: expoPushToken });
 ```
+
+The backend does not deliver pushes synchronously from that or any other request — it writes rows to a `notification_dispatches` outbox table, and a cron polls it roughly every 15 seconds to fan out deliveries via `expo-server-sdk`.
 
 Three notification types are dispatched by the `NotificationsModule`:
 
