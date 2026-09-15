@@ -32,7 +32,7 @@ An **Incident** is a geo-tagged, photo-verified environmental hazard report subm
 - A community urgency indicator
 - The current workflow status (e.g., *Reported*, *Verified*, *Cleanup Scheduled*, *Resolved*)
 
-Incidents remain in a **pending** state until an Organization Admin verifies them. Verified incidents can be converted into a **Task** or an **Event**.
+A newly reported incident has no owning organization yet — it sits in the **Global Incident Pool**, visible to any organization whose service area covers it. An Organization Admin **claims** a pooled incident rather than "verifying" it as a separate step — claiming an incident is what assigns it to their organization and marks it verified, in one action. See the API reference's [Incidents](../03-api/incidents.md#the-global-incident-pool) page for the full claim model. Claimed incidents can be converted into a **Task** or an **Event**.
 
 ---
 

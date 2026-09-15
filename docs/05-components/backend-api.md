@@ -26,7 +26,7 @@ graph TD
   Auth --> Asgardeo[WSO2 Asgardeo\nJWKS Endpoint]
   Incidents --> PostGIS[PostGIS\nSpatial Queries]
   Media --> S3[Amazon S3\nPresigned URLs]
-  Notifications --> FCM[Firebase FCM\nAdmin SDK]
+  Notifications --> Expo[Expo Push Service\nexpo-server-sdk, via outbox cron]
 ```
 
 ---
@@ -41,9 +41,9 @@ graph TD
 | **TasksModule** | Task creation from verified incidents, volunteer assignment, completion with evidence URLs | AuthModule, IncidentsModule, UsersModule |
 | **EventsModule** | Event creation from verified incidents, RSVP management, attendee lists, event reminders | AuthModule, IncidentsModule, UsersModule, NotificationsModule |
 | **WorkflowsModule** | Per-tenant workflow stage CRUD, atomic reorder, stage-in-use validation before deletion | AuthModule |
-| **UsersModule** | User profile management, FCM device token registration, role-based user queries | AuthModule |
+| **UsersModule** | User profile management, Expo push token registration, role-based user queries | AuthModule |
 | **MediaModule** | S3 presigned URL generation for direct client uploads; validates that submitted `mediaUrls` belong to the correct tenant S3 key prefix | AWS SDK v3 (`@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`) |
-| **NotificationsModule** | Firebase FCM dispatch for proximity alerts, task assignments, and event reminders | Firebase Admin SDK |
+| **NotificationsModule** | Expo Push dispatch (not Firebase) for proximity alerts, task assignments, and event reminders, via a `notification_dispatches` outbox table polled roughly every 15 seconds — not sent synchronously inline with the triggering request | expo-server-sdk |
 
 ---
 
@@ -177,6 +177,6 @@ The core tables and their multi-tenancy classification:
 | `events` | Yes | `id`, `organization_id`, `incident_id`, `scheduled_at` |
 | `event_rsvps` | Yes | `event_id`, `user_id`, `status` |
 | `workflow_stages` | Yes | `id`, `organization_id`, `slug`, `order_index`, `is_final` |
-| `device_tokens` | No | `user_id`, `fcm_token`, `platform` |
+| _(none — the Expo push token is a `push_token` column on `users` itself, not a separate device-tokens table)_ | | |
 
 All tables marked "Tenant-Scoped: Yes" have a PostgreSQL RLS policy requiring `organization_id = current_setting('app.current_tenant')::UUID`. See [Multi-Tenancy](../architecture/multi-tenancy) for the full policy SQL.

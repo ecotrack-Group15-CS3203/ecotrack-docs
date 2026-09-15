@@ -5,9 +5,9 @@ title: Workflows
 
 # Workflows
 
-Each tenant organization can configure a custom set of **workflow stages** that define the status flow for incidents in their workspace. Stages are ordered by an `orderIndex` and identified by a unique `slug`. No backend code changes are required to add, rename, reorder, or remove stages.
+Each organisation configures a custom set of **workflow stages** that define the status flow for incidents it has claimed, plus a single **Workflow Stage Rules** row that governs when creating or completing a task/event automatically advances an incident's stage. Stages are ordered by an integer `position` (zero-based) and identified by a server-generated, immutable `slug`. No backend code changes are required to add, rename, reorder, or delete stages.
 
-**Base path:** `/v1/workflows`
+**Base path:** `/v1/organisations/:organisationId/workflow-stages` and `/v1/organisations/:organisationId/workflow-stage-rules`
 
 ---
 
@@ -16,12 +16,12 @@ Each tenant organization can configure a custom set of **workflow stages** that 
 ```json
 {
   "id": "stage-uuid",
-  "organizationId": "org-uuid",
+  "organisationId": "org-uuid",
   "name": "Cleanup Scheduled",
   "slug": "cleanup_scheduled",
   "description": "A cleanup task or event has been created and scheduled.",
-  "color": "#F59E0B",
-  "orderIndex": 3,
+  "color": "#3B82F6",
+  "position": 2,
   "isFinal": false,
   "createdAt": "2026-01-15T09:00:00Z",
   "updatedAt": "2026-01-15T09:00:00Z"
@@ -31,116 +31,99 @@ Each tenant organization can configure a custom set of **workflow stages** that 
 | Field | Type | Description |
 |---|---|---|
 | `name` | string | Display name shown in the dashboard UI |
-| `slug` | string | URL-safe identifier used in API calls (e.g., `PATCH /incidents/:id/status`) |
-| `color` | string | Hex color for UI badges. Optional. |
-| `orderIndex` | integer | Zero-based position in the stage sequence. Stages are displayed in ascending order. |
-| `isFinal` | boolean | If `true`, an incident in this stage is considered resolved. The platform may use this to exclude it from active incident queries. |
+| `slug` | string | Server-generated from `name` at creation (lowercased, non-alphanumerics collapsed to `_`), suffixed `_2`, `_3`, ... on collision. **Immutable** — not settable via the update endpoint, since existing incidents reference it |
+| `color` | string | 6-digit hex string, e.g. `#3B82F6` |
+| `position` | integer | Zero-based position in the stage sequence. There is no `orderIndex` column — it's `position` |
+| `isFinal` | boolean | If `true`, an incident on this stage is considered resolved |
 
 ---
 
 ## Default Workflow
 
-When a new organization is created, the following default stages are provisioned automatically:
+When a new organisation is created, five stages are seeded automatically:
 
-| Order | Name | Slug | Final |
-|---|---|---|---|
-| 0 | Reported | `reported` | No |
-| 1 | Verified | `verified` | No |
-| 2 | Cleanup Scheduled | `cleanup_scheduled` | No |
-| 3 | Resolved | `resolved` | Yes |
+| Position | Name | Final |
+|---|---|---|
+| 0 | Reported | No |
+| 1 | Claimed | No |
+| 2 | Cleanup Scheduled | No |
+| 3 | Resolved | Yes |
+| 4 | Dismissed | No |
 
-Organizations can modify this default workflow at any time.
+Position `0` ("Reported") is a fixed display placeholder for the Global Incident Pool stage — no incident's `currentStageId` ever actually points at it, since a pooled incident has `currentStageId: null`. The stage an incident actually lands on immediately after being claimed is position `1` ("Claimed" by default, though the org may rename or reorder it). "Dismissed" is the stage `PATCH .../incidents/:incidentId/reject` moves an incident to, looked up by its `dismissed` slug — if an org deletes that stage, rejection still succeeds, it just leaves `currentStageId` unchanged.
+
+Organisations can rename, recolor, reorder, add, or delete any of these stages at any time (subject to the deletion constraints below).
 
 ---
 
-## Endpoints
+## Workflow Stage Rules
 
-### `GET /v1/workflows/stages`
+Every organisation also has exactly one **Workflow Stage Rules** row, seeded at registration, configuring two independent behaviours:
 
-Return all workflow stages for the authenticated admin's organization, ordered by `orderIndex`.
+- **Minimum stage precondition** — for Task Creation and Event Creation only. A `taskCreationMinStageId` / `eventCreationMinStageId` set to a stage id means the linked incident's `currentStage.position` must be at or beyond that stage's `position`, or the create call is rejected with `422`. A `null` minimum (the default) means no precondition — any claimed incident qualifies. Task/Event **Completion** carry no minimum-stage precondition; they are consequences of something that must always succeed on its own terms.
+- **Auto-advance target** — for all four triggers (Task Creation, Event Creation, Task Completion, Event Completion). A `*TargetStageId` set to a stage id means the trigger, once satisfied, moves the incident straight to that stage. A `null` target (the default, "Automatic") means the trigger instead advances the incident to whatever stage is next by `position`. If the incident is already on a final stage, nothing advances.
 
-**Auth:** `org_admin`
-
-**Response `200`:**
+### Workflow Stage Rules Object
 
 ```json
 {
-  "data": [
-    {
-      "id": "stage-uuid-1",
-      "name": "Reported",
-      "slug": "reported",
-      "color": "#6B7280",
-      "orderIndex": 0,
-      "isFinal": false
-    },
-    {
-      "id": "stage-uuid-2",
-      "name": "Verified",
-      "slug": "verified",
-      "color": "#3B82F6",
-      "orderIndex": 1,
-      "isFinal": false
-    },
-    {
-      "id": "stage-uuid-3",
-      "name": "Cleanup Scheduled",
-      "slug": "cleanup_scheduled",
-      "color": "#F59E0B",
-      "orderIndex": 2,
-      "isFinal": false
-    },
-    {
-      "id": "stage-uuid-4",
-      "name": "Resolved",
-      "slug": "resolved",
-      "color": "#10B981",
-      "orderIndex": 3,
-      "isFinal": true
-    }
-  ]
+  "organisationId": "org-uuid",
+  "taskCreationMinStageId": "stage-uuid-1",
+  "taskCreationTargetStageId": null,
+  "eventCreationMinStageId": "stage-uuid-1",
+  "eventCreationTargetStageId": null,
+  "taskCompletionTargetStageId": null,
+  "eventCompletionTargetStageId": null,
+  "createdAt": "2026-01-15T09:00:00Z",
+  "updatedAt": "2026-01-15T09:00:00Z"
 }
 ```
 
+`organisationId` is the primary key of this table directly — there is exactly one row per organisation, not one row per rule.
+
+These rules are what actually drives an incident's stage transitions when a task or event is created or completed — see [Tasks & Events](./tasks-events) for where each trigger fires. There is no unconditional "advance to next stage" behaviour independent of this configuration.
+
 ---
 
-### `POST /v1/workflows/stages`
+## Workflow Stage Endpoints
 
-Create a new workflow stage. The new stage is appended after the current last stage unless `orderIndex` is specified.
+### `GET /v1/organisations/:organisationId/workflow-stages`
 
-**Auth:** `org_admin`
+Return all workflow stages for the organisation, ordered by `position`.
+
+**Auth:** `org_admin`, platform admin
+
+**Response `200`:** a **bare array** of [Workflow Stage Objects](#workflow-stage-object) (not the paginated envelope — stage lists are unpaginated).
+
+---
+
+### `POST /v1/organisations/:organisationId/workflow-stages`
+
+Create a new workflow stage. It is always appended after the current last stage — there is no way to insert at an arbitrary position on create; use the reorder endpoint afterwards if a different order is needed.
+
+**Auth:** `org_admin`, platform admin
 
 **Request body:**
 
 ```json
 {
   "name": "Evidence Under Review",
-  "slug": "evidence_review",
   "description": "Cleanup evidence has been uploaded and is being reviewed by an admin.",
-  "color": "#8B5CF6",
-  "orderIndex": 3,
-  "isFinal": false
+  "color": "#8B5CF6"
 }
 ```
 
-If `orderIndex` conflicts with an existing stage, all subsequent stages are automatically shifted up by 1.
+`color` must match `/^#[0-9a-fA-F]{6}$/`.
 
-**Response `201`:** Full [Workflow Stage Object](#workflow-stage-object).
-
-**Errors:**
-
-| Status | Code | Cause |
-|---|---|---|
-| `409` | `SLUG_TAKEN` | A stage with this slug already exists in the organization |
-| `400` | `SLUG_INVALID` | Slug contains characters other than lowercase alphanumeric and underscores |
+**Response `201`:** Full [Workflow Stage Object](#workflow-stage-object), with a server-generated `slug` and `position` set to the current stage count.
 
 ---
 
-### `PATCH /v1/workflows/stages/:id`
+### `PATCH /v1/organisations/:organisationId/workflow-stages/:stageId`
 
-Update a workflow stage's display properties.
+Update a stage's `name`, `description`, `color`, and/or `isFinal`.
 
-**Auth:** `org_admin`
+**Auth:** `org_admin`, platform admin
 
 **Request body (all fields optional):**
 
@@ -153,65 +136,92 @@ Update a workflow stage's display properties.
 }
 ```
 
-:::note
-The `slug` cannot be changed after creation because existing incidents reference it. The `orderIndex` must be changed via the [reorder endpoint](#patch-v1workflowsstagesreorder) to keep the sequence consistent.
-:::
+There is no `slug` field here — it is immutable, and the global `ValidationPipe` rejects any request body that includes one (`403`/`400` — unknown property). `position` is likewise not settable here; use the reorder endpoint.
 
 **Response `200`:** Updated [Workflow Stage Object](#workflow-stage-object).
 
 ---
 
-### `PATCH /v1/workflows/stages/reorder`
+### `PATCH /v1/organisations/:organisationId/workflow-stages/reorder`
 
-Update the `orderIndex` of multiple stages in a single atomic operation. All stages in the organization must be included in the request body.
+Reassign the `position` of every stage in one atomic operation.
 
-**Auth:** `org_admin`
+**Auth:** `org_admin`, platform admin
 
 **Request body:**
 
 ```json
 {
-  "stages": [
-    { "id": "stage-uuid-1", "orderIndex": 0 },
-    { "id": "stage-uuid-2", "orderIndex": 1 },
-    { "id": "stage-uuid-5", "orderIndex": 2 },
-    { "id": "stage-uuid-3", "orderIndex": 3 },
-    { "id": "stage-uuid-4", "orderIndex": 4 }
-  ]
+  "orderedStageIds": ["stage-uuid-1", "stage-uuid-2", "stage-uuid-5", "stage-uuid-3", "stage-uuid-4"]
 }
 ```
 
-The operation validates that all IDs belong to the requesting organization and that `orderIndex` values are unique and contiguous starting from `0`.
+Every existing stage id must appear exactly once, in the desired order; array index becomes `position`.
 
-**Response `200`:**
-
-```json
-{
-  "stages": [ /* full ordered array of Workflow Stage Objects */ ]
-}
-```
+**Response `200`:** the full ordered array of [Workflow Stage Objects](#workflow-stage-object).
 
 **Errors:**
 
-| Status | Code | Cause |
-|---|---|---|
-| `400` | `INCOMPLETE_STAGE_LIST` | Not all stages for the organization are included in the request |
-| `400` | `DUPLICATE_ORDER_INDEX` | Two or more stages share the same `orderIndex` |
+| Status | Cause |
+|---|---|
+| `400` | The list omits a stage, repeats one, or includes an unknown stage id |
 
 ---
 
-### `DELETE /v1/workflows/stages/:id`
+### `DELETE /v1/organisations/:organisationId/workflow-stages/:stageId`
 
-Delete a workflow stage.
+Delete a workflow stage. Remaining stages are automatically renumbered so `position` stays contiguous from `0`.
 
-**Auth:** `org_admin`
+**Auth:** `org_admin`, platform admin
 
-**Response `204`:** No content.
+**Response `200`:** `{ "success": true }`
 
 **Errors:**
 
-| Status | Code | Cause |
-|---|---|---|
-| `409` | `STAGE_IN_USE` | One or more incidents currently have this status. Reassign them before deleting the stage. |
-| `400` | `CANNOT_DELETE_INITIAL` | The first stage (`orderIndex: 0`) cannot be deleted. All new incidents are assigned to it by default. |
-| `400` | `MUST_HAVE_FINAL_STAGE` | Deleting this stage would leave the organization with no `isFinal: true` stage. |
+| Status | Cause |
+|---|---|
+| `409` | One or more incidents currently sit at this stage (`currentStageId`) |
+| `409` | This stage is referenced by the organisation's [Workflow Stage Rules](#workflow-stage-rules) (a minimum or target stage) |
+
+---
+
+## Workflow Stage Rules Endpoints
+
+### `GET /v1/organisations/:organisationId/workflow-stage-rules`
+
+Return the organisation's single Workflow Stage Rules row, creating a default one first if this organisation predates the rules feature.
+
+**Auth:** `org_admin`, platform admin
+
+**Response `200`:** the [Workflow Stage Rules Object](#workflow-stage-rules-object) (not wrapped in an array or pagination envelope).
+
+---
+
+### `PATCH /v1/organisations/:organisationId/workflow-stage-rules`
+
+Update any subset of the six rule fields.
+
+**Auth:** `org_admin`, platform admin
+
+**Request body (all fields optional):**
+
+```json
+{
+  "taskCreationMinStageId": "stage-uuid-1",
+  "taskCreationTargetStageId": null,
+  "eventCreationMinStageId": "stage-uuid-1",
+  "eventCreationTargetStageId": null,
+  "taskCompletionTargetStageId": "stage-uuid-3",
+  "eventCompletionTargetStageId": null
+}
+```
+
+Each field is a stage id, `null` to explicitly clear it (no minimum / "Automatic"), or omitted to leave it unchanged.
+
+**Response `200`:** the updated [Workflow Stage Rules Object](#workflow-stage-rules-object).
+
+**Errors:**
+
+| Status | Cause |
+|---|---|
+| `422` | A supplied stage id does not belong to this organisation |

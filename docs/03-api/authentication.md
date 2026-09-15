@@ -5,7 +5,7 @@ title: Authentication
 
 # Authentication
 
-EcoTrack uses **WSO2 Asgardeo** for identity and OAuth2 token issuance. All protected API endpoints require a valid JWT bearer token issued by Asgardeo. Role-Based Access Control (RBAC) is enforced at the NestJS Guard layer using role claims embedded in the token.
+EcoTrack uses **WSO2 Asgardeo** for identity and OAuth2 token issuance only — Asgardeo verifies *who* the user is, nothing more. All protected API endpoints require a valid JWT bearer token issued by Asgardeo. Role-Based Access Control (RBAC) is enforced at the NestJS Guard layer, but using a `role`/`organisationId` freshly resolved from EcoTrack's own `users` table on every request — **not** a claim embedded in the token. See [Token Format](#token-format) below.
 
 ---
 
@@ -39,7 +39,7 @@ The mobile app uses PKCE (Proof Key for Code Exchange) because native apps canno
 
 ## Token Format
 
-Asgardeo issues standard JWT access tokens. EcoTrack requires the following custom claims to be configured in the Asgardeo application:
+Asgardeo issues standard RS256 JWT access tokens, verified on every request against Asgardeo's live JWKS endpoint (no locally-held secret — EcoTrack does not sign its own tokens). The access token carries only Asgardeo's own claims:
 
 ```json
 {
@@ -49,20 +49,20 @@ Asgardeo issues standard JWT access tokens. EcoTrack requires the following cust
   "exp": 1753963800,
   "iat": 1753960200,
   "email": "admin@bolgoda.org",
-  "roles": ["org_admin"],
-  "organizationId": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  "name": "Rashmika S.",
+  "given_name": "Rashmika",
+  "family_name": "S."
 }
 ```
 
 | Claim | Type | Description |
 |---|---|---|
-| `sub` | string | Unique user ID (Asgardeo user subject) |
-| `email` | string | User's email address |
-| `roles` | string[] | One of: `citizen`, `volunteer`, `org_admin` |
-| `organizationId` | string (UUID) | Tenant the user belongs to. Used by the NestJS middleware to set the PostgreSQL RLS session variable. |
+| `sub` | string | Unique user ID (Asgardeo's `authSubject`) |
+| `email` | string | **Required.** Must be added to the application's *Access Token Attributes* in the Asgardeo console — Asgardeo omits it by default. Requests with no `email` claim are rejected with a `401` naming this fix |
+| `name` / `given_name` / `family_name` | string | Optional, used only to seed a brand-new user's `fullName` on first sight |
 
-:::note
-The `organizationId` claim is set when a user registers with or is invited to an organization. Citizens who have not joined any organization have `organizationId: null` and can only access public endpoints (incident map, nearby incidents).
+:::important
+There is **no `role` or `organizationId` claim**, trusted or otherwise. EcoTrack's own `users` table is the sole source of truth for both. On the first request bearing a validated token for a never-seen `sub`, a `users` row is **just-in-time provisioned** — `role: citizen`, `organisationId: null`. Every subsequent request re-resolves `role`/`organisationId` fresh from that row (not from any token claim), so a role or org-membership change takes effect on the user's very next request, with no re-login required.
 :::
 
 ---
@@ -95,34 +95,68 @@ grant_type=refresh_token
 
 ## Role-Based Access Control
 
-EcoTrack enforces three roles. Each role inherits all permissions of the roles listed above it.
+EcoTrack checks against four role values, not three: the `role` column's three values, plus a platform-wide flag that isn't tied to any organisation at all.
 
-| Role | Inherits From | Key Permissions |
+| Role | Scope | Key Permissions |
 |---|---|---|
-| `citizen` | — | Report incidents, view incident map, browse organizations, request to join an org |
-| `volunteer` | `citizen` | View own assigned tasks and events, submit task completion evidence, RSVP to events |
-| `org_admin` | `volunteer` | Verify incidents, create tasks and events, assign volunteers, manage workflow stages, view org analytics, generate invite links |
+| `citizen` | No organisation | Report incidents, view the public hazard map, browse the organisation directory, submit join requests / redeem invite links |
+| `volunteer` | One organisation | Everything a `citizen` can, plus: view and respond to own task assignments, upload progress evidence, RSVP to events |
+| `org_admin` | One organisation | Everything a `volunteer` can, plus: browse and claim the incident pool, reject/mark-duplicate claimed incidents, create tasks and events, configure workflow stages and stage rules, manage members/invitations/invite links, view the org's audit log |
+| `platform_admin` | Every organisation | Not a `role` value — a separate `users.isPlatformAdmin` boolean. Activate/deactivate any organisation, list all organisations, view platform-wide stats and audit logs |
+
+Roles do not literally "inherit" one another in code (`org_admin` is not automatically granted every `volunteer`-gated route) — in practice most organisation-scoped read routes are guarded with `@Roles(UserRole.ORG_ADMIN, UserRole.VOLUNTEER, PLATFORM_ADMIN)` explicitly, rather than a hierarchy check.
 
 ### Endpoint Authorization Matrix
 
-| Endpoint | `citizen` | `volunteer` | `org_admin` |
-|---|:---:|:---:|:---:|
-| `POST /incidents` | ✓ | ✓ | ✓ |
-| `GET /incidents/nearby` | ✓ | ✓ | ✓ |
-| `GET /incidents` (org list) | — | — | ✓ |
-| `POST /incidents/:id/verify` | — | — | ✓ |
-| `GET /tasks` (own tasks) | — | ✓ | ✓ |
-| `POST /tasks` | — | — | ✓ |
-| `POST /tasks/:id/complete` | — | ✓ | ✓ |
-| `POST /events` | — | — | ✓ |
-| `POST /events/:id/rsvp` | — | ✓ | ✓ |
-| `GET /workflows` | — | — | ✓ |
-| `POST /workflows/stages` | — | — | ✓ |
-| `GET /organizations` (public) | ✓ | ✓ | ✓ |
-| `POST /organizations` | ✓ | ✓ | ✓ |
-| `POST /organizations/:id/invites` | — | — | ✓ |
+A representative sample — see [Incidents](./incidents), [Organisations](./organizations), [Tasks & Events](./tasks-events), and [Workflows](./workflows) for the exhaustive, per-endpoint auth requirements.
+
+| Endpoint | `citizen` | `volunteer` | `org_admin` | `platform_admin` |
+|---|:---:|:---:|:---:|:---:|
+| `POST /v1/incidents` | ✓ | ✓ | ✓ | — |
+| `GET /v1/incidents/nearby` | ✓ | ✓ | ✓ | ✓ |
+| `GET /v1/incidents/pool` | — | — | ✓ | — |
+| `POST /v1/incidents/pool/:id/claim` | — | — | ✓ | — |
+| `GET /v1/organisations/:id/incidents` | — | — | ✓ | ✓ |
+| `PATCH /v1/organisations/:id/incidents/:id/reject` | — | — | ✓ | — |
+| `GET /v1/organisations/:id/tasks/mine` | — | ✓ | — | — |
+| `POST /v1/organisations/:id/tasks` | — | — | ✓ | — |
+| `PATCH /v1/organisations/:id/tasks/:id/progress/complete` | — | ✓ | — | — |
+| `POST /v1/organisations/:id/events` | — | — | ✓ | — |
+| `POST /v1/organisations/:id/events/:id/rsvp` | — | ✓ | — | — |
+| `GET /v1/organisations/:id/workflow-stages` | — | — | ✓ | ✓ |
+| `PATCH /v1/organisations/:id/workflow-stage-rules` | — | — | ✓ | ✓ |
+| `GET /v1/organisations/public` | ✓ | ✓ | ✓ | ✓ (unauthenticated too) |
+| `POST /v1/organisations` | ✓ | ✓ | ✓ | ✓ |
+| `POST /v1/organisations/:id/invites` | — | — | ✓ | — |
+| `PATCH /v1/organisations/:id/activate` | — | — | — | ✓ |
+
+Routes taking an `:organisationId` path parameter are additionally guarded by `TenantGuard`: the caller's own `organisationId` (resolved from the `users` table, never trusted from the token) must match the path parameter, or the request is rejected with `403` — a platform admin is exempt from this check. See [Multi-Tenancy](../02-architecture/multi-tenancy.md).
 
 ---
+
+## Account & Profile
+
+Beyond the OAuth flow itself, a handful of routes live under `/v1/auth` for profile and account-lifecycle actions:
+
+| Endpoint | Auth | Description |
+|---|---|---|
+| `GET /v1/auth/me` | any authenticated user | Current profile: `id`, `fullName`, `email`, `role`, `isPlatformAdmin`, notification preferences, `alertCenterSet` (boolean — never the coordinates themselves), and the user's `organisation` summary if any |
+| `PATCH /v1/auth/me` | any authenticated user | Update `fullName`, notification preferences, `notificationRadiusMeters`, `notificationMinUrgency`, or `alertCenter` (see below) |
+| `PATCH /v1/auth/push-token` | any authenticated user | Register the device's Expo push token |
+| `DELETE /v1/auth/me` | any authenticated user | Right-to-erasure account deletion. `204` on success. Database-local only — it does **not** delete the identity from Asgardeo, so the same person signing in again afterwards is provisioned a fresh, empty `citizen` account for the same `sub`. Returns `409` if the caller is the last active `org_admin` of an active organisation |
+| `GET /v1/auth/invitations/:token` | public, rate-limited | Look up an email invitation before accepting it |
+| `POST /v1/auth/invitations/:token/accept` | any authenticated user, rate-limited | Accept an email invitation — see [Organisations](./organizations#invitations-email-bound-single-use) |
+
+### Two distinct location fields — do not conflate them
+
+`users` carries two separate geography points, each with its own consent moment and its own single purpose:
+
+| Field | Set when | Used for |
+|---|---|---|
+| `homeLocation` | A join request is submitted, or an invite link is redeemed | **Only** join/invite service-area eligibility checks |
+| `alertCenter` | The user explicitly configures/updates their proximity-alert radius on mobile (via `PATCH /v1/auth/me`) | **Only** matching new incidents against the proximity-alert notification job |
+
+Neither is captured at registration, and neither is ever substituted for the other — `alertCenter` is never read for join eligibility, and `homeLocation` is never matched against new incidents.
 
 ## Authentication Error Responses
 
@@ -131,8 +165,8 @@ EcoTrack enforces three roles. Each role inherits all permissions of the roles l
 | `401 Unauthorized` | `TOKEN_MISSING` | No `Authorization` header provided |
 | `401 Unauthorized` | `TOKEN_EXPIRED` | JWT has passed its `exp` claim |
 | `401 Unauthorized` | `TOKEN_INVALID` | JWT signature verification failed against Asgardeo JWKS |
-| `403 Forbidden` | `INSUFFICIENT_ROLE` | Authenticated user's role does not have permission for this endpoint |
-| `403 Forbidden` | `TENANT_MISMATCH` | Resource belongs to a different organization than the token's `organizationId` |
+| `403 Forbidden` | — | Authenticated user's DB-resolved role does not have permission for this endpoint (`RolesGuard`). No machine-readable `code` is attached to this one — it's a plain Nest `ForbiddenException` |
+| `403 Forbidden` | — | The `:organisationId` path parameter doesn't match the caller's own DB-resolved organisation, and the caller isn't a platform admin (`TenantGuard`). Also a plain `ForbiddenException`, no `code` |
 
 ```json
 {
