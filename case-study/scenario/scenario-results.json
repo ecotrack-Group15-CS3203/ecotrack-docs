@@ -1,0 +1,1503 @@
+{
+  "runId": "mus4nhzx",
+  "startedAt": "2026-10-03T08:25:47.997Z",
+  "durationSeconds": 25.471,
+  "api": "http://localhost:4100/v1",
+  "defaultStages": [
+    {
+      "name": "Reported",
+      "isFinal": false
+    },
+    {
+      "name": "Claimed",
+      "isFinal": false
+    },
+    {
+      "name": "Cleanup Scheduled",
+      "isFinal": false
+    },
+    {
+      "name": "Resolved",
+      "isFinal": true
+    },
+    {
+      "name": "Dismissed",
+      "isFinal": true
+    }
+  ],
+  "rules": {
+    "organisationId": "a3670ab1-c673-4b7f-95a1-6e865d3559dc",
+    "taskCreationMinStageId": "0f41a2e8-5edb-4dff-bb0c-f2cbe45c5f41",
+    "taskCreationTargetStageId": null,
+    "eventCreationMinStageId": "0f41a2e8-5edb-4dff-bb0c-f2cbe45c5f41",
+    "eventCreationTargetStageId": null,
+    "taskCompletionTargetStageId": null,
+    "eventCompletionTargetStageId": null,
+    "createdAt": "2026-10-03T08:25:48.979Z",
+    "updatedAt": "2026-10-03T08:25:48.979Z"
+  },
+  "rulesAfter": {
+    "organisationId": "a3670ab1-c673-4b7f-95a1-6e865d3559dc",
+    "taskCreationMinStageId": null,
+    "taskCreationTargetStageId": "e2092058-693e-46d0-899a-a7d62a1945b1",
+    "eventCreationMinStageId": "0f41a2e8-5edb-4dff-bb0c-f2cbe45c5f41",
+    "eventCreationTargetStageId": null,
+    "taskCompletionTargetStageId": null,
+    "eventCompletionTargetStageId": null,
+    "createdAt": "2026-10-03T08:25:48.979Z",
+    "updatedAt": "2026-10-03T08:25:49.419Z"
+  },
+  "steps": [
+    {
+      "at": "1.15",
+      "phase": "0 Setup",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Registers Bolgoda Lake Conservation Society (10 km service area)",
+      "outcome": "org created, Nimal is org_admin"
+    },
+    {
+      "at": "1.32",
+      "phase": "0 Setup",
+      "actor": "Kasun (UGS coordinator)",
+      "action": "Registers University Green Society (25 km, overlaps the lake)",
+      "outcome": "org created, Kasun is org_admin"
+    },
+    {
+      "at": "1.39",
+      "phase": "0 Setup",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Reviews default workflow and auto-advance rules",
+      "outcome": "Reported → Claimed → Cleanup Scheduled → Resolved → Dismissed"
+    },
+    {
+      "at": "1.44",
+      "phase": "0 Setup",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Changes the task rule so one incident can carry several tasks (any open stage → Cleanup Scheduled)",
+      "outcome": "rules saved"
+    },
+    {
+      "at": "1.49",
+      "phase": "1 Recruit",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Creates a shareable invite link (10 uses, 14 days)",
+      "outcome": "link issued"
+    },
+    {
+      "at": "1.69",
+      "phase": "1 Recruit",
+      "actor": "Sahan (volunteer)",
+      "action": "Accepts invite link from a lakeside location",
+      "outcome": "joined as volunteer"
+    },
+    {
+      "at": "1.80",
+      "phase": "1 Recruit",
+      "actor": "Tharushi (volunteer)",
+      "action": "Accepts invite link from a lakeside location",
+      "outcome": "joined as volunteer"
+    },
+    {
+      "at": "1.93",
+      "phase": "1 Recruit",
+      "actor": "Ishara (volunteer)",
+      "action": "Accepts invite link from a lakeside location",
+      "outcome": "joined as volunteer"
+    },
+    {
+      "at": "2.04",
+      "phase": "1 Recruit",
+      "actor": "Malith (volunteer)",
+      "action": "Submits a join request from the directory",
+      "outcome": "pending"
+    },
+    {
+      "at": "2.11",
+      "phase": "1 Recruit",
+      "actor": "Nadeesha (volunteer)",
+      "action": "Submits a join request from the directory",
+      "outcome": "pending"
+    },
+    {
+      "at": "2.15",
+      "phase": "1 Recruit",
+      "actor": "Chamara (Kandy resident)",
+      "action": "Tries to join from Kandy (~95 km away)",
+      "outcome": "refused: 422"
+    },
+    {
+      "at": "2.52",
+      "phase": "1 Recruit",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Approves 2 pending join requests",
+      "outcome": "Malith and Nadeesha are now volunteer"
+    },
+    {
+      "at": "2.80",
+      "phase": "1 Recruit",
+      "actor": "Sahan (volunteer)",
+      "action": "Sahan and Tharushi opt in to proximity alerts (5 km, high+)",
+      "outcome": "saved"
+    },
+    {
+      "at": "3.06",
+      "phase": "2 Report",
+      "actor": "Ruwan (fisherman)",
+      "action": "Reports \"Oil sheen spreading from boat jetty\" (water_pollution, critical) with photo",
+      "outcome": "in Global Incident Pool"
+    },
+    {
+      "at": "3.18",
+      "phase": "2 Report",
+      "actor": "Amaya (lakeside resident)",
+      "action": "Reports \"Plastic dumped near Bolgoda Lake north shore\" (illegal_dumping, high) with photo",
+      "outcome": "in Global Incident Pool"
+    },
+    {
+      "at": "3.31",
+      "phase": "2 Report",
+      "actor": "Dilini (boat operator)",
+      "action": "Reports \"Garbage pile on north shore path\" (illegal_dumping, medium) with photo",
+      "outcome": "in Global Incident Pool"
+    },
+    {
+      "at": "3.42",
+      "phase": "2 Report",
+      "actor": "Dilini (boat operator)",
+      "action": "Reports \"Canal mouth choked with floating waste\" (illegal_dumping, high) with photo",
+      "outcome": "in Global Incident Pool"
+    },
+    {
+      "at": "3.58",
+      "phase": "2 Report",
+      "actor": "Amaya (lakeside resident)",
+      "action": "Reports \"Mangrove saplings cut near eastern edge\" (deforestation, medium) with photo",
+      "outcome": "in Global Incident Pool"
+    },
+    {
+      "at": "3.69",
+      "phase": "2 Report",
+      "actor": "Ruwan (fisherman)",
+      "action": "Reports \"Test report please ignore\" (other, low) with photo",
+      "outcome": "in Global Incident Pool"
+    },
+    {
+      "at": "20.76",
+      "phase": "2 Report",
+      "actor": "Sahan (volunteer)",
+      "action": "Dispatcher sends proximity alerts to opted-in volunteers",
+      "outcome": "Sahan 3, Tharushi 3 alerts"
+    },
+    {
+      "at": "20.82",
+      "phase": "3 Claim",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Opens the incident pool (service area filter)",
+      "outcome": "6 incidents visible"
+    },
+    {
+      "at": "20.82",
+      "phase": "3 Claim",
+      "actor": "Kasun (UGS coordinator)",
+      "action": "Opens the incident pool",
+      "outcome": "6 incidents visible"
+    },
+    {
+      "at": "20.88",
+      "phase": "3 Claim",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "BLCS and UGS both press Claim on the oil-sheen incident at the same moment",
+      "outcome": "BLCS wins; other gets HTTP 409"
+    },
+    {
+      "at": "21.10",
+      "phase": "3 Claim",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Claims the remaining 5 lake incidents",
+      "outcome": "all claimed, reporters notified"
+    },
+    {
+      "at": "21.14",
+      "phase": "3 Claim",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Marks \"Garbage pile on north shore path\" as duplicate of the plastic dumping report",
+      "outcome": "merged"
+    },
+    {
+      "at": "21.19",
+      "phase": "3 Claim",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Rejects the test report with a reason",
+      "outcome": "Ruwan notified"
+    },
+    {
+      "at": "21.32",
+      "phase": "4 Organise",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Creates task \"Deploy absorbent booms at the jetty\" → Sahan (volunteer)",
+      "outcome": "due in 1 days, high"
+    },
+    {
+      "at": "21.50",
+      "phase": "4 Organise",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Creates task \"Photograph sheen extent and source\" → Tharushi (volunteer)",
+      "outcome": "due in 2 days, high"
+    },
+    {
+      "at": "21.68",
+      "phase": "4 Organise",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Creates task \"Clear floating waste at canal mouth\" → Ishara (volunteer)",
+      "outcome": "due in 3 days, medium"
+    },
+    {
+      "at": "21.84",
+      "phase": "4 Organise",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Creates task \"Replant cut mangrove saplings\" → Malith (volunteer)",
+      "outcome": "due in 7 days, medium"
+    },
+    {
+      "at": "21.98",
+      "phase": "4 Organise",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Schedules \"North shore cleanup drive\" linked to the dumping report (cap 4)",
+      "outcome": "listed in volunteers' Events tab (no notification is sent)"
+    },
+    {
+      "at": "22.06",
+      "phase": "5 Act",
+      "actor": "Sahan (volunteer)",
+      "action": "Accepts boom deployment task",
+      "outcome": "accepted"
+    },
+    {
+      "at": "22.14",
+      "phase": "5 Act",
+      "actor": "Tharushi (volunteer)",
+      "action": "Declines photo survey with a reason",
+      "outcome": "Nimal notified"
+    },
+    {
+      "at": "22.29",
+      "phase": "5 Act",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Reassigns photo survey to Nadeesha",
+      "outcome": "old assignment cancelled"
+    },
+    {
+      "at": "22.69",
+      "phase": "5 Act",
+      "actor": "Nadeesha (volunteer)",
+      "action": "Nadeesha, Ishara and Malith accept their tasks",
+      "outcome": "accepted"
+    },
+    {
+      "at": "22.95",
+      "phase": "5 Act",
+      "actor": "Sahan (volunteer)",
+      "action": "Starts task, adds a progress note, tries to complete without photo",
+      "outcome": "refused: 400"
+    },
+    {
+      "at": "23.25",
+      "phase": "5 Act",
+      "actor": "Sahan (volunteer)",
+      "action": "Uploads evidence photo and completes \"Deploy absorbent booms at the jetty\"",
+      "outcome": "completed"
+    },
+    {
+      "at": "23.30",
+      "phase": "5 Act",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Checks oil-sheen incident after 1 of 2 tasks done",
+      "outcome": "still \"Cleanup Scheduled\""
+    },
+    {
+      "at": "23.77",
+      "phase": "5 Act",
+      "actor": "Nadeesha (volunteer)",
+      "action": "Uploads evidence photo and completes \"Photograph sheen extent and source\"",
+      "outcome": "completed"
+    },
+    {
+      "at": "23.81",
+      "phase": "5 Act",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Checks oil-sheen incident after both tasks done",
+      "outcome": "auto-advanced to \"Resolved\""
+    },
+    {
+      "at": "24.25",
+      "phase": "5 Act",
+      "actor": "Ishara (volunteer)",
+      "action": "Uploads evidence photo and completes \"Clear floating waste at canal mouth\"",
+      "outcome": "completed"
+    },
+    {
+      "at": "24.61",
+      "phase": "5 Act",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "5 volunteers RSVP to the 4-place cleanup drive",
+      "outcome": "Sahan: confirmed; Tharushi: confirmed; Ishara: confirmed; Malith: confirmed; Nadeesha: refused 409 (full)"
+    },
+    {
+      "at": "24.83",
+      "phase": "5 Act",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Marks cleanup drive ongoing, then completed",
+      "outcome": "dumping incident auto-advanced to \"Resolved\""
+    },
+    {
+      "at": "25.02",
+      "phase": "6 Oversee",
+      "actor": "Nimal (BLCS coordinator)",
+      "action": "Opens dashboard and audit log",
+      "outcome": "40 audit entries"
+    },
+    {
+      "at": "25.08",
+      "phase": "6 Oversee",
+      "actor": "Kasun (UGS coordinator)",
+      "action": "UGS coordinator tries to read BLCS's tasks",
+      "outcome": "refused: 403"
+    }
+  ],
+  "incidentsFinal": [
+    {
+      "title": "Oil sheen spreading from boat jetty",
+      "category": "water_pollution",
+      "severity": "critical",
+      "verification": "approved",
+      "stage": "Resolved"
+    },
+    {
+      "title": "Plastic dumped near Bolgoda Lake north shore",
+      "category": "illegal_dumping",
+      "severity": "high",
+      "verification": "approved",
+      "stage": "Resolved"
+    },
+    {
+      "title": "Garbage pile on north shore path",
+      "category": "illegal_dumping",
+      "severity": "medium",
+      "verification": "duplicate",
+      "stage": "Claimed"
+    },
+    {
+      "title": "Canal mouth choked with floating waste",
+      "category": "illegal_dumping",
+      "severity": "high",
+      "verification": "approved",
+      "stage": "Resolved"
+    },
+    {
+      "title": "Mangrove saplings cut near eastern edge",
+      "category": "deforestation",
+      "severity": "medium",
+      "verification": "approved",
+      "stage": "Cleanup Scheduled"
+    },
+    {
+      "title": "Test report please ignore",
+      "category": "other",
+      "severity": "low",
+      "verification": "rejected",
+      "stage": "Dismissed"
+    }
+  ],
+  "raceCodes": [
+    200,
+    409
+  ],
+  "rsvp": [
+    [
+      "Sahan (volunteer)",
+      "confirmed"
+    ],
+    [
+      "Tharushi (volunteer)",
+      "confirmed"
+    ],
+    [
+      "Ishara (volunteer)",
+      "confirmed"
+    ],
+    [
+      "Malith (volunteer)",
+      "confirmed"
+    ],
+    [
+      "Nadeesha (volunteer)",
+      "refused 409 (full)"
+    ]
+  ],
+  "noPhotoCompletion": "refused: 400",
+  "outsideJoin": "refused: 422",
+  "crossTenant": "refused: 403",
+  "oilStageAfterOneTask": "Cleanup Scheduled",
+  "oilStageAfterBothTasks": "Resolved",
+  "dumpStageAfterEvent": "Resolved",
+  "poolVisible": {
+    "BLCS": 6,
+    "UGS": 6
+  },
+  "ugsIncidentCount": 0,
+  "proximityAlerts": {
+    "sahan": [
+      "New high hazard reported nearby",
+      "New high hazard reported nearby",
+      "New critical hazard reported nearby"
+    ],
+    "tharushi": [
+      "New high hazard reported nearby",
+      "New high hazard reported nearby",
+      "New critical hazard reported nearby"
+    ]
+  },
+  "notifications": {
+    "Nimal (BLCS coordinator)": {
+      "task_completed": 3,
+      "task_status_changed": 8,
+      "join_request_submitted": 2
+    },
+    "Amaya (lakeside resident)": {
+      "incident_claimed": 2
+    },
+    "Ruwan (fisherman)": {
+      "incident_rejected": 1,
+      "incident_claimed": 2
+    },
+    "Dilini (boat operator)": {
+      "incident_claimed": 2
+    },
+    "Sahan (volunteer)": {
+      "task_assigned": 1,
+      "incident_proximity": 3
+    },
+    "Tharushi (volunteer)": {
+      "task_assigned": 1,
+      "incident_proximity": 3
+    },
+    "Ishara (volunteer)": {
+      "task_assigned": 1
+    },
+    "Malith (volunteer)": {
+      "task_assigned": 1,
+      "join_request_approved": 1
+    },
+    "Nadeesha (volunteer)": {
+      "task_assigned": 1,
+      "join_request_approved": 1
+    }
+  },
+  "dashboard": {
+    "totalIncidents": 6,
+    "claimedThisMonth": 6,
+    "awaitingClaimInServiceArea": 0,
+    "resolvedIncidents": 4,
+    "activeVolunteers": 5,
+    "completedCleanupTasks": 3,
+    "incidentsByCategory": [
+      {
+        "category": "illegal_dumping",
+        "count": 3
+      },
+      {
+        "category": "water_pollution",
+        "count": 1
+      },
+      {
+        "category": "deforestation",
+        "count": 1
+      },
+      {
+        "category": "other",
+        "count": 1
+      }
+    ]
+  },
+  "auditTotal": 40,
+  "auditByAction": {
+    "event.completed": 1,
+    "incident.stage_changed": 7,
+    "event.ongoing": 1,
+    "event.rsvp": 4,
+    "task.completed": 3,
+    "task.reassigned": 1,
+    "event.created": 1,
+    "task.created": 4,
+    "incident.rejected": 1,
+    "incident.marked_duplicate": 1,
+    "incident.claimed": 6,
+    "join_request.approved": 2,
+    "join_request.submitted": 2,
+    "invite_link.redeemed": 3,
+    "invite_link.created": 1,
+    "workflow_stage_rules.updated": 1,
+    "organisation.created": 1
+  },
+  "publicStats": {
+    "organisations": 2,
+    "incidentsResolved": 3,
+    "medianClaimMinutes": 0.3
+  },
+  "callsTotal": 112,
+  "callsByActor": {
+    "nimal": {
+      "calls": 34,
+      "errors": 0
+    },
+    "kasun": {
+      "calls": 7,
+      "errors": 0
+    },
+    "ruwan": {
+      "calls": 6,
+      "errors": 0
+    },
+    "amaya": {
+      "calls": 6,
+      "errors": 0
+    },
+    "dilini": {
+      "calls": 6,
+      "errors": 0
+    },
+    "ishara": {
+      "calls": 10,
+      "errors": 0
+    },
+    "tharushi": {
+      "calls": 9,
+      "errors": 0
+    },
+    "sahan": {
+      "calls": 15,
+      "errors": 0
+    },
+    "malith": {
+      "calls": 6,
+      "errors": 0
+    },
+    "nadeesha": {
+      "calls": 10,
+      "errors": 0
+    },
+    "chamara": {
+      "calls": 2,
+      "errors": 0
+    },
+    "public": {
+      "calls": 1,
+      "errors": 0
+    }
+  },
+  "medianCallMs": 67,
+  "unexpectedErrors": [],
+  "calls": [
+    {
+      "actor": "nimal",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 203
+    },
+    {
+      "actor": "kasun",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 60
+    },
+    {
+      "actor": "ruwan",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 153
+    },
+    {
+      "actor": "amaya",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 188
+    },
+    {
+      "actor": "dilini",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 180
+    },
+    {
+      "actor": "ishara",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 164
+    },
+    {
+      "actor": "tharushi",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 174
+    },
+    {
+      "actor": "sahan",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 182
+    },
+    {
+      "actor": "malith",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 188
+    },
+    {
+      "actor": "nadeesha",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 186
+    },
+    {
+      "actor": "chamara",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 59
+    },
+    {
+      "actor": "nimal",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/organisations",
+      "status": 201,
+      "ms": 155
+    },
+    {
+      "actor": "nimal",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 65
+    },
+    {
+      "actor": "kasun",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/organisations",
+      "status": 201,
+      "ms": 132
+    },
+    {
+      "actor": "kasun",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 37
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "GET",
+      "url": "/organisations/:id/workflow-stages",
+      "status": 200,
+      "ms": 31
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "GET",
+      "url": "/organisations/:id/workflow-stage-rules",
+      "status": 200,
+      "ms": 33
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "PATCH",
+      "url": "/organisations/:id/workflow-stage-rules",
+      "status": 200,
+      "ms": 53
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "POST",
+      "url": "/organisations/:id/invites",
+      "status": 201,
+      "ms": 45
+    },
+    {
+      "actor": "sahan",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/organisations/invites/accept",
+      "status": 200,
+      "ms": 158
+    },
+    {
+      "actor": "sahan",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 47
+    },
+    {
+      "actor": "tharushi",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/organisations/invites/accept",
+      "status": 200,
+      "ms": 74
+    },
+    {
+      "actor": "tharushi",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 38
+    },
+    {
+      "actor": "ishara",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/organisations/invites/accept",
+      "status": 200,
+      "ms": 74
+    },
+    {
+      "actor": "ishara",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 52
+    },
+    {
+      "actor": "malith",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/organisations/join-request",
+      "status": 201,
+      "ms": 106
+    },
+    {
+      "actor": "nadeesha",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/organisations/join-request",
+      "status": 201,
+      "ms": 72
+    },
+    {
+      "actor": "chamara",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/organisations/join-request",
+      "status": 422,
+      "ms": 36,
+      "expectedRefusal": true
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "GET",
+      "url": "/organisations/:id/join-requests?status=pending",
+      "status": 200,
+      "ms": 73
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "PATCH",
+      "url": "/organisations/:id/join-requests/:id",
+      "status": 200,
+      "ms": 125
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "PATCH",
+      "url": "/organisations/:id/join-requests/:id",
+      "status": 200,
+      "ms": 105
+    },
+    {
+      "actor": "malith",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 67
+    },
+    {
+      "actor": "nadeesha",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 73
+    },
+    {
+      "actor": "sahan",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 80
+    },
+    {
+      "actor": "sahan",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/auth/push-token",
+      "status": 200,
+      "ms": 61
+    },
+    {
+      "actor": "tharushi",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/auth/me",
+      "status": 200,
+      "ms": 64
+    },
+    {
+      "actor": "tharushi",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/auth/push-token",
+      "status": 200,
+      "ms": 73
+    },
+    {
+      "actor": "ruwan",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/media/upload-url",
+      "status": 201,
+      "ms": 175
+    },
+    {
+      "actor": "ruwan",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/incidents",
+      "status": 201,
+      "ms": 65
+    },
+    {
+      "actor": "amaya",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/media/upload-url",
+      "status": 201,
+      "ms": 39
+    },
+    {
+      "actor": "amaya",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/incidents",
+      "status": 201,
+      "ms": 67
+    },
+    {
+      "actor": "dilini",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/media/upload-url",
+      "status": 201,
+      "ms": 57
+    },
+    {
+      "actor": "dilini",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/incidents",
+      "status": 201,
+      "ms": 61
+    },
+    {
+      "actor": "dilini",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/media/upload-url",
+      "status": 201,
+      "ms": 37
+    },
+    {
+      "actor": "dilini",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/incidents",
+      "status": 201,
+      "ms": 57
+    },
+    {
+      "actor": "amaya",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/media/upload-url",
+      "status": 201,
+      "ms": 43
+    },
+    {
+      "actor": "amaya",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/incidents",
+      "status": 201,
+      "ms": 89
+    },
+    {
+      "actor": "ruwan",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/media/upload-url",
+      "status": 201,
+      "ms": 35
+    },
+    {
+      "actor": "ruwan",
+      "role": "citizen",
+      "method": "POST",
+      "url": "/incidents",
+      "status": 201,
+      "ms": 65
+    },
+    {
+      "actor": "sahan",
+      "role": "volunteer",
+      "method": "GET",
+      "url": "/notifications",
+      "status": 200,
+      "ms": 36
+    },
+    {
+      "actor": "tharushi",
+      "role": "volunteer",
+      "method": "GET",
+      "url": "/notifications",
+      "status": 200,
+      "ms": 27
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "GET",
+      "url": "/incidents/pool",
+      "status": 200,
+      "ms": 29
+    },
+    {
+      "actor": "kasun",
+      "role": "org_admin",
+      "method": "GET",
+      "url": "/incidents/pool",
+      "status": 200,
+      "ms": 29
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "POST",
+      "url": "/incidents/pool/:id/claim",
+      "status": 200,
+      "ms": 57
+    },
+    {
+      "actor": "kasun",
+      "role": "org_admin",
+      "method": "POST",
+      "url": "/incidents/pool/:id/claim",
+      "status": 409,
+      "ms": 59,
+      "expectedRefusal": true
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "POST",
+      "url": "/incidents/pool/:id/claim",
+      "status": 200,
+      "ms": 54
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "POST",
+      "url": "/incidents/pool/:id/claim",
+      "status": 200,
+      "ms": 42
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "POST",
+      "url": "/incidents/pool/:id/claim",
+      "status": 200,
+      "ms": 41
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "POST",
+      "url": "/incidents/pool/:id/claim",
+      "status": 200,
+      "ms": 44
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "POST",
+      "url": "/incidents/pool/:id/claim",
+      "status": 200,
+      "ms": 44
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "PATCH",
+      "url": "/organisations/:id/incidents/:id/duplicate",
+      "status": 200,
+      "ms": 39
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "PATCH",
+      "url": "/organisations/:id/incidents/:id/reject",
+      "status": 200,
+      "ms": 46
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "POST",
+      "url": "/organisations/:id/tasks",
+      "status": 201,
+      "ms": 134
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "POST",
+      "url": "/organisations/:id/tasks",
+      "status": 201,
+      "ms": 173
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "POST",
+      "url": "/organisations/:id/tasks",
+      "status": 201,
+      "ms": 178
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "POST",
+      "url": "/organisations/:id/tasks",
+      "status": 201,
+      "ms": 169
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "POST",
+      "url": "/organisations/:id/events",
+      "status": 201,
+      "ms": 136
+    },
+    {
+      "actor": "sahan",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/organisations/:id/tasks/:id/assignments/respond",
+      "status": 200,
+      "ms": 78
+    },
+    {
+      "actor": "tharushi",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/organisations/:id/tasks/:id/assignments/respond",
+      "status": 200,
+      "ms": 77
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "PATCH",
+      "url": "/organisations/:id/tasks/:id",
+      "status": 200,
+      "ms": 151
+    },
+    {
+      "actor": "nadeesha",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/organisations/:id/tasks/:id/assignments/respond",
+      "status": 200,
+      "ms": 92
+    },
+    {
+      "actor": "ishara",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/organisations/:id/tasks/:id/assignments/respond",
+      "status": 200,
+      "ms": 133
+    },
+    {
+      "actor": "malith",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/organisations/:id/tasks/:id/assignments/respond",
+      "status": 200,
+      "ms": 174
+    },
+    {
+      "actor": "sahan",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/organisations/:id/tasks/:id/progress/start",
+      "status": 200,
+      "ms": 120
+    },
+    {
+      "actor": "sahan",
+      "role": "volunteer",
+      "method": "POST",
+      "url": "/organisations/:id/tasks/:id/progress/notes",
+      "status": 201,
+      "ms": 75
+    },
+    {
+      "actor": "sahan",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/organisations/:id/tasks/:id/progress/complete",
+      "status": 400,
+      "ms": 61,
+      "expectedRefusal": true
+    },
+    {
+      "actor": "sahan",
+      "role": "volunteer",
+      "method": "POST",
+      "url": "/media/upload-url",
+      "status": 201,
+      "ms": 38
+    },
+    {
+      "actor": "sahan",
+      "role": "volunteer",
+      "method": "POST",
+      "url": "/organisations/:id/tasks/:id/progress/photos",
+      "status": 201,
+      "ms": 113
+    },
+    {
+      "actor": "sahan",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/organisations/:id/tasks/:id/progress/complete",
+      "status": 200,
+      "ms": 144
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "GET",
+      "url": "/organisations/:id/incidents?limit=50",
+      "status": 200,
+      "ms": 49
+    },
+    {
+      "actor": "nadeesha",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/organisations/:id/tasks/:id/progress/start",
+      "status": 200,
+      "ms": 89
+    },
+    {
+      "actor": "nadeesha",
+      "role": "volunteer",
+      "method": "POST",
+      "url": "/media/upload-url",
+      "status": 201,
+      "ms": 72
+    },
+    {
+      "actor": "nadeesha",
+      "role": "volunteer",
+      "method": "POST",
+      "url": "/organisations/:id/tasks/:id/progress/photos",
+      "status": 201,
+      "ms": 116
+    },
+    {
+      "actor": "nadeesha",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/organisations/:id/tasks/:id/progress/complete",
+      "status": 200,
+      "ms": 169
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "GET",
+      "url": "/organisations/:id/incidents?limit=50",
+      "status": 200,
+      "ms": 33
+    },
+    {
+      "actor": "ishara",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/organisations/:id/tasks/:id/progress/start",
+      "status": 200,
+      "ms": 74
+    },
+    {
+      "actor": "ishara",
+      "role": "volunteer",
+      "method": "POST",
+      "url": "/media/upload-url",
+      "status": 201,
+      "ms": 48
+    },
+    {
+      "actor": "ishara",
+      "role": "volunteer",
+      "method": "POST",
+      "url": "/organisations/:id/tasks/:id/progress/photos",
+      "status": 201,
+      "ms": 126
+    },
+    {
+      "actor": "ishara",
+      "role": "volunteer",
+      "method": "PATCH",
+      "url": "/organisations/:id/tasks/:id/progress/complete",
+      "status": 200,
+      "ms": 179
+    },
+    {
+      "actor": "sahan",
+      "role": "volunteer",
+      "method": "POST",
+      "url": "/organisations/:id/events/:id/rsvp",
+      "status": 200,
+      "ms": 90
+    },
+    {
+      "actor": "tharushi",
+      "role": "volunteer",
+      "method": "POST",
+      "url": "/organisations/:id/events/:id/rsvp",
+      "status": 200,
+      "ms": 71
+    },
+    {
+      "actor": "ishara",
+      "role": "volunteer",
+      "method": "POST",
+      "url": "/organisations/:id/events/:id/rsvp",
+      "status": 200,
+      "ms": 95
+    },
+    {
+      "actor": "malith",
+      "role": "volunteer",
+      "method": "POST",
+      "url": "/organisations/:id/events/:id/rsvp",
+      "status": 200,
+      "ms": 77
+    },
+    {
+      "actor": "nadeesha",
+      "role": "volunteer",
+      "method": "POST",
+      "url": "/organisations/:id/events/:id/rsvp",
+      "status": 409,
+      "ms": 29,
+      "expectedRefusal": true
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "PATCH",
+      "url": "/organisations/:id/events/:id/status",
+      "status": 200,
+      "ms": 70
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "PATCH",
+      "url": "/organisations/:id/events/:id/status",
+      "status": 200,
+      "ms": 108
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "GET",
+      "url": "/organisations/:id/incidents?limit=50",
+      "status": 200,
+      "ms": 43
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "GET",
+      "url": "/organisations/:id/incidents?limit=50",
+      "status": 200,
+      "ms": 68
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "GET",
+      "url": "/organisations/:id/dashboard/stats",
+      "status": 200,
+      "ms": 80
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "GET",
+      "url": "/organisations/:id/audit-logs?limit=100",
+      "status": 200,
+      "ms": 41
+    },
+    {
+      "actor": "kasun",
+      "role": "org_admin",
+      "method": "GET",
+      "url": "/organisations/:id/incidents?limit=50",
+      "status": 200,
+      "ms": 39
+    },
+    {
+      "actor": "kasun",
+      "role": "org_admin",
+      "method": "GET",
+      "url": "/organisations/:id/tasks",
+      "status": 403,
+      "ms": 15,
+      "expectedRefusal": true
+    },
+    {
+      "actor": "public",
+      "role": "anonymous",
+      "method": "GET",
+      "url": "/public/stats",
+      "status": 200,
+      "ms": 36
+    },
+    {
+      "actor": "nimal",
+      "role": "org_admin",
+      "method": "GET",
+      "url": "/notifications",
+      "status": 200,
+      "ms": 43
+    },
+    {
+      "actor": "amaya",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/notifications",
+      "status": 200,
+      "ms": 32
+    },
+    {
+      "actor": "ruwan",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/notifications",
+      "status": 200,
+      "ms": 29
+    },
+    {
+      "actor": "dilini",
+      "role": "citizen",
+      "method": "GET",
+      "url": "/notifications",
+      "status": 200,
+      "ms": 28
+    },
+    {
+      "actor": "sahan",
+      "role": "volunteer",
+      "method": "GET",
+      "url": "/notifications",
+      "status": 200,
+      "ms": 26
+    },
+    {
+      "actor": "tharushi",
+      "role": "volunteer",
+      "method": "GET",
+      "url": "/notifications",
+      "status": 200,
+      "ms": 28
+    },
+    {
+      "actor": "ishara",
+      "role": "volunteer",
+      "method": "GET",
+      "url": "/notifications",
+      "status": 200,
+      "ms": 48
+    },
+    {
+      "actor": "malith",
+      "role": "volunteer",
+      "method": "GET",
+      "url": "/notifications",
+      "status": 200,
+      "ms": 65
+    },
+    {
+      "actor": "nadeesha",
+      "role": "volunteer",
+      "method": "GET",
+      "url": "/notifications",
+      "status": 200,
+      "ms": 58
+    }
+  ]
+}

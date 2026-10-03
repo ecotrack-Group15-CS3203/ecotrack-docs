@@ -1,0 +1,47 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+  body { margin: 0; background: #fff; font-family: 'Liberation Sans', Arial, sans-serif; color: #222; }
+  .wrap { width: 1400px; padding: 24px; box-sizing: border-box; }
+  h1 { font-size: 22px; margin: 0 0 14px; }
+  .lane { display: grid; grid-template-columns: 190px 1fr; border: 1.5px solid #555; margin-top: -1.5px; }
+  .who { background: #eee; font-weight: 700; font-size: 16px; padding: 14px; display: flex; align-items: center; border-right: 1.5px solid #555; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 70px; }
+  .box { border: 1.5px solid #333; border-radius: 6px; padding: 7px 11px; font-size: 15px; background: #fff; max-width: 230px; }
+  .sys { border-color: #2e7d32; background: #e8f5e9; }
+  .arrow { font-size: 22px; color: #555; }
+  .tag { font-size: 12px; color: #2e7d32; font-weight: 700; display: block; margin-top: 3px; }
+  .legend { margin-top: 12px; font-size: 14px; }
+  .legend span { display: inline-block; width: 16px; height: 12px; border: 1.5px solid #2e7d32; background: #e8f5e9; vertical-align: middle; margin-right: 6px; }
+</style></head><body><div class="wrap">
+<h1>After: the same campaign coordinated through EcoTrack</h1>
+<div class="lane"><div class="who">Resident (mobile)</div><div class="row">
+  <div class="box">Reports with photo + GPS<span class="tag">offline queue, auto-retry</span></div><span class="arrow">→</span>
+  <div class="box sys">Global Incident Pool<span class="tag">one shared intake, no org chosen</span></div><span class="arrow">→</span>
+  <div class="box">Notified: claimed / rejected</div>
+</div></div>
+<div class="lane"><div class="who">Platform (automatic)</div><div class="row">
+  <div class="box sys">Proximity alert to opted-in volunteers<span class="tag">15 s dispatcher</span></div>
+  <div class="box sys">Service-area filter<span class="tag">PostGIS ST_DWithin</span></div>
+  <div class="box sys">Atomic claim: 1 winner<span class="tag">loser refused (409/404)</span></div>
+  <div class="box sys">Stage auto-advance<span class="tag">workflow stage rules</span></div>
+  <div class="box sys">Immutable audit log</div>
+</div></div>
+<div class="lane"><div class="who">Lake society coordinator (web)</div><div class="row">
+  <div class="box">Claims in 2 interactions</div><span class="arrow">→</span>
+  <div class="box">Duplicate / reject with reason</div><span class="arrow">→</span>
+  <div class="box">Tasks (due date, priority) and capped events</div><span class="arrow">→</span>
+  <div class="box">Board, dashboard, reports, CSV</div>
+</div></div>
+<div class="lane"><div class="who">Second group (web)</div><div class="row">
+  <div class="box">Sees same pool incident</div><span class="arrow">→</span>
+  <div class="box sys">Claim refused: already owned<span class="tag">no duplicate cleanup</span></div><span class="arrow">→</span>
+  <div class="box sys">Cannot read the other society's data<span class="tag">tenant guard + RLS (403)</span></div>
+</div></div>
+<div class="lane"><div class="who">Volunteers (mobile)</div><div class="row">
+  <div class="box">Join via invite link / location-checked request</div><span class="arrow">→</span>
+  <div class="box">Accept or decline with reason</div><span class="arrow">→</span>
+  <div class="box">Notes + photo evidence (required to complete)</div><span class="arrow">→</span>
+  <div class="box">RSVP within capacity; 24 h reminders</div>
+</div></div>
+<div class="legend"><span></span>coordination performed by the platform rather than by people</div>
+</div></body></html>
