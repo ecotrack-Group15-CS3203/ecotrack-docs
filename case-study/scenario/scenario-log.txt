@@ -1,0 +1,46 @@
+EcoTrack case-study run mus4nhzx against http://localhost:4100/v1 at 2026-10-03T08:25:47.999Z
+[1.15s] 0 Setup | Nimal (BLCS coordinator): Registers Bolgoda Lake Conservation Society (10 km service area) -> org created, Nimal is org_admin
+[1.32s] 0 Setup | Kasun (UGS coordinator): Registers University Green Society (25 km, overlaps the lake) -> org created, Kasun is org_admin
+[1.39s] 0 Setup | Nimal (BLCS coordinator): Reviews default workflow and auto-advance rules -> Reported → Claimed → Cleanup Scheduled → Resolved → Dismissed
+[1.44s] 0 Setup | Nimal (BLCS coordinator): Changes the task rule so one incident can carry several tasks (any open stage → Cleanup Scheduled) -> rules saved
+[1.49s] 1 Recruit | Nimal (BLCS coordinator): Creates a shareable invite link (10 uses, 14 days) -> link issued
+[1.69s] 1 Recruit | Sahan (volunteer): Accepts invite link from a lakeside location -> joined as volunteer
+[1.80s] 1 Recruit | Tharushi (volunteer): Accepts invite link from a lakeside location -> joined as volunteer
+[1.93s] 1 Recruit | Ishara (volunteer): Accepts invite link from a lakeside location -> joined as volunteer
+[2.04s] 1 Recruit | Malith (volunteer): Submits a join request from the directory -> pending
+[2.11s] 1 Recruit | Nadeesha (volunteer): Submits a join request from the directory -> pending
+[2.15s] 1 Recruit | Chamara (Kandy resident): Tries to join from Kandy (~95 km away) -> refused: 422
+[2.52s] 1 Recruit | Nimal (BLCS coordinator): Approves 2 pending join requests -> Malith and Nadeesha are now volunteer
+[2.80s] 1 Recruit | Sahan (volunteer): Sahan and Tharushi opt in to proximity alerts (5 km, high+) -> saved
+[3.06s] 2 Report | Ruwan (fisherman): Reports "Oil sheen spreading from boat jetty" (water_pollution, critical) with photo -> in Global Incident Pool
+[3.18s] 2 Report | Amaya (lakeside resident): Reports "Plastic dumped near Bolgoda Lake north shore" (illegal_dumping, high) with photo -> in Global Incident Pool
+[3.31s] 2 Report | Dilini (boat operator): Reports "Garbage pile on north shore path" (illegal_dumping, medium) with photo -> in Global Incident Pool
+[3.42s] 2 Report | Dilini (boat operator): Reports "Canal mouth choked with floating waste" (illegal_dumping, high) with photo -> in Global Incident Pool
+[3.58s] 2 Report | Amaya (lakeside resident): Reports "Mangrove saplings cut near eastern edge" (deforestation, medium) with photo -> in Global Incident Pool
+[3.69s] 2 Report | Ruwan (fisherman): Reports "Test report please ignore" (other, low) with photo -> in Global Incident Pool
+[20.76s] 2 Report | Sahan (volunteer): Dispatcher sends proximity alerts to opted-in volunteers -> Sahan 3, Tharushi 3 alerts
+[20.82s] 3 Claim | Nimal (BLCS coordinator): Opens the incident pool (service area filter) -> 6 incidents visible
+[20.82s] 3 Claim | Kasun (UGS coordinator): Opens the incident pool -> 6 incidents visible
+[20.88s] 3 Claim | Nimal (BLCS coordinator): BLCS and UGS both press Claim on the oil-sheen incident at the same moment -> BLCS wins; other gets HTTP 409
+[21.10s] 3 Claim | Nimal (BLCS coordinator): Claims the remaining 5 lake incidents -> all claimed, reporters notified
+[21.14s] 3 Claim | Nimal (BLCS coordinator): Marks "Garbage pile on north shore path" as duplicate of the plastic dumping report -> merged
+[21.19s] 3 Claim | Nimal (BLCS coordinator): Rejects the test report with a reason -> Ruwan notified
+[21.32s] 4 Organise | Nimal (BLCS coordinator): Creates task "Deploy absorbent booms at the jetty" → Sahan (volunteer) -> due in 1 days, high
+[21.50s] 4 Organise | Nimal (BLCS coordinator): Creates task "Photograph sheen extent and source" → Tharushi (volunteer) -> due in 2 days, high
+[21.68s] 4 Organise | Nimal (BLCS coordinator): Creates task "Clear floating waste at canal mouth" → Ishara (volunteer) -> due in 3 days, medium
+[21.84s] 4 Organise | Nimal (BLCS coordinator): Creates task "Replant cut mangrove saplings" → Malith (volunteer) -> due in 7 days, medium
+[21.98s] 4 Organise | Nimal (BLCS coordinator): Schedules "North shore cleanup drive" linked to the dumping report (cap 4) -> listed in volunteers' Events tab (no notification is sent)
+[22.06s] 5 Act | Sahan (volunteer): Accepts boom deployment task -> accepted
+[22.14s] 5 Act | Tharushi (volunteer): Declines photo survey with a reason -> Nimal notified
+[22.29s] 5 Act | Nimal (BLCS coordinator): Reassigns photo survey to Nadeesha -> old assignment cancelled
+[22.69s] 5 Act | Nadeesha (volunteer): Nadeesha, Ishara and Malith accept their tasks -> accepted
+[22.95s] 5 Act | Sahan (volunteer): Starts task, adds a progress note, tries to complete without photo -> refused: 400
+[23.25s] 5 Act | Sahan (volunteer): Uploads evidence photo and completes "Deploy absorbent booms at the jetty" -> completed
+[23.30s] 5 Act | Nimal (BLCS coordinator): Checks oil-sheen incident after 1 of 2 tasks done -> still "Cleanup Scheduled"
+[23.77s] 5 Act | Nadeesha (volunteer): Uploads evidence photo and completes "Photograph sheen extent and source" -> completed
+[23.81s] 5 Act | Nimal (BLCS coordinator): Checks oil-sheen incident after both tasks done -> auto-advanced to "Resolved"
+[24.25s] 5 Act | Ishara (volunteer): Uploads evidence photo and completes "Clear floating waste at canal mouth" -> completed
+[24.61s] 5 Act | Nimal (BLCS coordinator): 5 volunteers RSVP to the 4-place cleanup drive -> Sahan: confirmed; Tharushi: confirmed; Ishara: confirmed; Malith: confirmed; Nadeesha: refused 409 (full)
+[24.83s] 5 Act | Nimal (BLCS coordinator): Marks cleanup drive ongoing, then completed -> dumping incident auto-advanced to "Resolved"
+[25.02s] 6 Oversee | Nimal (BLCS coordinator): Opens dashboard and audit log -> 40 audit entries
+[25.08s] 6 Oversee | Kasun (UGS coordinator): UGS coordinator tries to read BLCS's tasks -> refused: 403
