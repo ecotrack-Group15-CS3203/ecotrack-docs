@@ -10,7 +10,6 @@ sidebar_position: 0
 
 **EcoTrack** is a Multi-Tenant SaaS platform for community-driven, hyper-local environmental monitoring and cleanup coordination. It provides a centralized system for citizens to report environmental incidents, administrators to manage volunteer-led cleanups, and multiple independent organizations to operate on the same platform with strict data isolation.
 
-> **Project:** PID 08 — Group 15 | **Mentor:** Mr. Nipuna Fernando
 
 ---
 
