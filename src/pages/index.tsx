@@ -29,6 +29,12 @@ function HomepageHeader() {
             to="/docs/api">
             API Reference
           </Link>
+          <Link
+            className="button button--outline button--secondary button--lg"
+            style={{marginLeft: '1rem'}}
+            to="/docs/user-guide">
+            User Guide
+          </Link>
         </div>
       </div>
     </header>

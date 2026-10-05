@@ -23,12 +23,15 @@ Local environmental groups rely on fragmented tools (WhatsApp, spreadsheets, soc
 - A **multi-tenant backend** that ensures complete data isolation between independent environmental organizations
 - A **configurable workflow engine** letting admins customize incident status stages without touching code
 
+New to EcoTrack as a citizen, volunteer or organisation admin? Read the [User Guide](/docs/user-guide).
+
 ---
 
 ## Who Are These Docs For?
 
 | Audience | Start Here |
 |---|---|
+| Using the app or dashboard | [User Guide →](/docs/user-guide) |
 | New team members / contributors | [Onboarding →](/docs/onboarding) |
 | Understanding system design | [Architecture →](/docs/architecture/system-context) |
 | Building against the API | [API Reference →](/docs/api) |

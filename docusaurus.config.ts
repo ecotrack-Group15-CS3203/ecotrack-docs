@@ -93,6 +93,10 @@ const config: Config = {
           title: 'Documentation',
           items: [
             {
+              label: 'User Guide',
+              to: '/docs/user-guide',
+            },
+            {
               label: 'Introduction',
               to: '/docs/onboarding',
             },
